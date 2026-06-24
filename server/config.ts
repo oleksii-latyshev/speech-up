@@ -6,7 +6,7 @@ export const config = {
   },
   whisper: {
     url: process.env.WHISPER_URL ?? "http://localhost:8001",
-    model: process.env.WHISPER_MODEL ?? "small",
+    model: process.env.WHISPER_MODEL ?? "deepdml/faster-whisper-large-v3-turbo-ct2",
   },
   kokoro: {
     url: process.env.KOKORO_URL ?? "http://localhost:8880",
