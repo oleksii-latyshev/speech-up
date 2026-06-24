@@ -29,7 +29,7 @@ services:
     ports:
       - "8001:8000"
     environment:
-      WHISPER__MODEL: Systran/faster-whisper-small
+      WHISPER__MODEL: deepdml/faster-whisper-large-v3-turbo-ct2
 
   kokoro:
     image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.2
