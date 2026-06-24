@@ -1,9 +1,8 @@
 import { Elysia } from "elysia"
-
-const PORT = Number(process.env.PORT ?? 3001)
+import { config } from "./config"
 
 const app = new Elysia({ prefix: "/api" })
   .get("/health", () => ({ status: "ok", timestamp: new Date().toISOString() }))
-  .listen(PORT)
+  .listen(config.port)
 
-console.log(`Server running at http://localhost:${PORT}`)
+console.log(`Server running at http://localhost:${config.port}`)

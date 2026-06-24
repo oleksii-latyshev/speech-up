@@ -1,0 +1,38 @@
+services:
+  ollama:
+    image: ollama/ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama_data:/root/.ollama
+    healthcheck:
+      test: "ollama list || exit 1"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  ollama-init:
+    image: ollama/ollama
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: ollama:11434
+    command: pull qwen3:8b
+    restart: "no"
+
+  whisper:
+    image: fedirz/faster-whisper-server:latest-cpu
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    environment:
+      WHISPER__MODEL: Systran/faster-whisper-small
+
+  kokoro:
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.2
+    restart: unless-stopped
+    ports:
+      - "8880:8880"
