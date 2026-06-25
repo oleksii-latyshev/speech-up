@@ -1,8 +1,14 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
 import { Mic, MicOff, Loader2 } from "lucide-react"
 import { useVoiceCapture, type CaptureStatus } from "@/hooks/useVoiceCapture"
 
 type CaptureMode = "auto" | "ptt"
+
+interface Turn {
+  transcript: string
+  response: string
+  coaching: string
+}
 
 const STATUS_LABEL: Record<CaptureStatus, string> = {
   idle: "Idle",
@@ -18,24 +24,56 @@ const STATUS_COLOR: Record<CaptureStatus, string> = {
   processing: "text-yellow-400",
 }
 
-async function sendAudio(blob: Blob): Promise<string> {
+async function transcribeAudio(blob: Blob): Promise<string> {
   const form = new FormData()
   form.append("audio", blob, "audio.webm")
   const res = await fetch("/api/transcribe", { method: "POST", body: form })
-  if (!res.ok) throw new Error(`Server error ${res.status}`)
-  const data = (await res.json()) as { transcript: string }
-  return data.transcript
+  if (!res.ok) throw new Error(`STT error ${res.status}`)
+  return ((await res.json()) as { transcript: string }).transcript
+}
+
+async function sendChat(
+  transcript: string,
+  history: { role: string; content: string }[]
+): Promise<{ response: string; coaching: string }> {
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ transcript, history }),
+  })
+  if (!res.ok) throw new Error(`LLM error ${res.status}`)
+  return res.json()
+}
+
+function historyFromTurns(turns: Turn[]) {
+  return turns.flatMap((t) => [
+    { role: "user", content: t.transcript },
+    { role: "assistant", content: t.response },
+  ])
 }
 
 export default function App() {
   const [mode, setMode] = useState<CaptureMode>("auto")
-  const [transcript, setTranscript] = useState<string | null>(null)
+  const [turns, setTurns] = useState<Turn[]>([])
   const [error, setError] = useState<string | null>(null)
+  const turnsRef = useRef<Turn[]>([])
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  turnsRef.current = turns
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [turns])
 
   const handleAudioReady = useCallback(async (blob: Blob) => {
     setError(null)
     try {
-      setTranscript(await sendAudio(blob))
+      const transcript = await transcribeAudio(blob)
+      const { response, coaching } = await sendChat(
+        transcript,
+        historyFromTurns(turnsRef.current)
+      )
+      setTurns((prev) => [...prev, { transcript, response, coaching }])
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error")
     }
@@ -45,104 +83,130 @@ export default function App() {
     onAudioReady: handleAudioReady,
   })
 
-  const isActive = status !== "idle" && status !== "processing"
+  const isActive = status === "listening" || status === "speaking"
   const isProcessing = status === "processing"
 
-  // Auto mode: click toggles on/off
   const handleAutoClick = () => {
     if (status === "idle") startAuto()
     else if (isActive) stopAuto()
   }
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-8 p-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Speech Up</h1>
+    <div className="flex h-svh flex-col">
+      {/* Header */}
+      <header className="flex shrink-0 items-center justify-between border-b px-4 py-3">
+        <h1 className="font-semibold tracking-tight">Speech Up</h1>
+        <div className="flex gap-0.5 rounded-lg border p-0.5">
+          {(["auto", "ptt"] as CaptureMode[]).map((m) => (
+            <button
+              key={m}
+              onClick={() => {
+                if (status === "idle") setMode(m)
+              }}
+              disabled={status !== "idle"}
+              className={[
+                "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                mode === m
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              ].join(" ")}
+            >
+              {m === "auto" ? "Auto" : "Hold"}
+            </button>
+          ))}
+        </div>
+      </header>
 
-      {/* Mode toggle */}
-      <div className="flex rounded-lg border p-1 gap-1">
-        {(["auto", "ptt"] as CaptureMode[]).map((m) => (
-          <button
-            key={m}
-            onClick={() => { if (status === "idle") setMode(m) }}
-            disabled={status !== "idle"}
-            className={[
-              "rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
-              mode === m
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            ].join(" ")}
-          >
-            {m === "auto" ? "Auto" : "Hold"}
-          </button>
+      {/* Conversation */}
+      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+        {turns.length === 0 && (
+          <p className="mt-8 text-center text-sm text-muted-foreground">
+            {mode === "ptt"
+              ? "Hold the button below and start speaking"
+              : "Press the mic below and start speaking"}
+          </p>
+        )}
+
+        {turns.map((turn, i) => (
+          <div key={i} className="space-y-2">
+            <div className="flex justify-end">
+              <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2">
+                <p className="text-sm text-primary-foreground">
+                  {turn.transcript}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-start">
+              <div className="max-w-[80%] rounded-2xl rounded-tl-sm bg-muted px-4 py-2">
+                <p className="text-sm">{turn.response}</p>
+              </div>
+            </div>
+            {turn.coaching && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+                <p className="text-xs text-amber-400">📝 {turn.coaching}</p>
+              </div>
+            )}
+          </div>
         ))}
+
+        {error && <p className="text-center text-sm text-red-400">{error}</p>}
+        <div ref={bottomRef} />
       </div>
 
-      {/* Mic button */}
-      {mode === "auto" ? (
-        <button
-          onClick={handleAutoClick}
-          disabled={isProcessing}
-          className={[
-            "flex h-24 w-24 items-center justify-center rounded-full",
-            "ring-4 transition-all focus:outline-none disabled:opacity-50",
-            isActive
-              ? "bg-red-500 ring-red-400/40 hover:bg-red-600"
-              : "bg-primary ring-primary/30 hover:bg-primary/90",
-          ].join(" ")}
-          aria-label={isActive ? "Stop listening" : "Start listening"}
+      {/* Controls */}
+      <div className="flex shrink-0 flex-col items-center gap-3 border-t px-4 py-4">
+        {mode === "auto" ? (
+          <button
+            onClick={handleAutoClick}
+            disabled={isProcessing}
+            className={[
+              "flex h-16 w-16 items-center justify-center rounded-full",
+              "ring-4 transition-all focus:outline-none disabled:opacity-50",
+              isActive
+                ? "bg-red-500 ring-red-400/40 hover:bg-red-600"
+                : "bg-primary ring-primary/30 hover:bg-primary/90",
+            ].join(" ")}
+            aria-label={isActive ? "Stop listening" : "Start listening"}
+          >
+            {isProcessing ? (
+              <Loader2 className="h-6 w-6 animate-spin text-white" />
+            ) : isActive ? (
+              <MicOff className="h-6 w-6 text-white" />
+            ) : (
+              <Mic className="h-6 w-6 text-white" />
+            )}
+          </button>
+        ) : (
+          <button
+            onPointerDown={pttStart}
+            onPointerUp={pttStop}
+            onPointerLeave={pttStop}
+            disabled={isProcessing}
+            className={[
+              "flex h-16 w-16 items-center justify-center rounded-full",
+              "touch-none ring-4 transition-all select-none focus:outline-none disabled:opacity-50",
+              status === "speaking"
+                ? "scale-95 bg-red-500 ring-red-400/40"
+                : "bg-primary ring-primary/30 hover:bg-primary/90",
+            ].join(" ")}
+            aria-label="Hold to speak"
+          >
+            {isProcessing ? (
+              <Loader2 className="h-6 w-6 animate-spin text-white" />
+            ) : (
+              <Mic className="h-6 w-6 text-white" />
+            )}
+          </button>
+        )}
+
+        <p
+          className={`text-xs font-medium transition-colors ${STATUS_COLOR[status]}`}
         >
-          {isProcessing ? (
-            <Loader2 className="h-8 w-8 animate-spin text-white" />
-          ) : isActive ? (
-            <MicOff className="h-8 w-8 text-white" />
-          ) : (
-            <Mic className="h-8 w-8 text-white" />
-          )}
-        </button>
-      ) : (
-        <button
-          onPointerDown={pttStart}
-          onPointerUp={pttStop}
-          onPointerLeave={pttStop}
-          disabled={isProcessing}
-          className={[
-            "flex h-24 w-24 items-center justify-center rounded-full",
-            "ring-4 select-none transition-all focus:outline-none disabled:opacity-50",
-            "touch-none", // prevent scroll hijack on mobile
-            status === "speaking"
-              ? "bg-red-500 ring-red-400/40 scale-95"
-              : "bg-primary ring-primary/30 hover:bg-primary/90",
-          ].join(" ")}
-          aria-label="Hold to speak"
-        >
-          {isProcessing ? (
-            <Loader2 className="h-8 w-8 animate-spin text-white" />
-          ) : (
-            <Mic className="h-8 w-8 text-white" />
-          )}
-        </button>
-      )}
-
-      <p className={`text-sm font-medium transition-colors ${STATUS_COLOR[status]}`}>
-        {mode === "ptt" && status === "idle"
-          ? "Hold to speak"
-          : STATUS_LABEL[status]}
-      </p>
-
-      {transcript && (
-        <div className="w-full max-w-md rounded-lg border p-4">
-          <p className="mb-1 text-xs font-medium text-muted-foreground">Last transcript</p>
-          <p className="text-sm">{transcript}</p>
-        </div>
-      )}
-
-      {error && <p className="text-sm text-red-400">{error}</p>}
-
-      {mode === "auto" && status === "idle" && (
-        <p className="text-xs text-muted-foreground">
-          Stops after {2.5}s of silence
+          {mode === "ptt" && status === "idle"
+            ? "Hold to speak"
+            : STATUS_LABEL[status]}
         </p>
-      )}
+      </div>
     </div>
   )
 }
