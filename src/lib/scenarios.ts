@@ -1,6 +1,26 @@
 import { Briefcase, Coffee, MessagesSquare, Users, type LucideIcon } from "lucide-react"
 
 // Ids must stay in sync with server/scenarios.ts
+export type Difficulty = "easy" | "medium" | "hard"
+
+export const DIFFICULTIES: { id: Difficulty; label: string; description: string }[] = [
+  {
+    id: "easy",
+    label: "Easy",
+    description: "Suggested replies appear every turn — read one aloud to get going.",
+  },
+  {
+    id: "medium",
+    label: "Medium",
+    description: "No automatic help, but you can ask for a hint when you're stuck.",
+  },
+  {
+    id: "hard",
+    label: "Hard",
+    description: "No hints, natural speech with idioms — just like a real conversation.",
+  },
+]
+
 export type ScenarioId =
   | "interview-frontend"
   | "interview-backend"

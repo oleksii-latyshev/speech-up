@@ -22,13 +22,16 @@ The minimum after which the app is usable for daily practice.
 2. **Session Reset** — a "New conversation" button: clears `turns`, returns to the scenario picker. Required for switching scenarios.
 3. **Silence threshold setting** — slider in settings (~1.5–5 s instead of the hardcoded 2500 ms), persisted to localStorage. Everyone's thinking pause is different.
 
-### Phase 2 — Coach features (the main differentiator)
+### Phase 2 — Coach features ✅ (done)
 
 Conversation alone is practice, but confidence grows from feedback and from overcoming the "I don't know how to say this" freeze.
 
-4. **Session debrief** — an "End session" button makes the LLM generate a report in Russian: recurring mistakes, 3–5 "what you said → what a native would say" pairs, vocabulary/expressions to remember. Without this, progress is lost between sessions.
-5. **"I'm stuck" button** — when the user freezes, the AI offers 1–2 English sentence starters. Directly treats the target user's core problem.
-6. **Richer coaching note** — alongside error analysis, show a more natural full rephrasing of what the user just said.
+4. **Difficulty levels** — Easy / Medium / Hard, picked on the scenario screen (persisted):
+   - **Easy**: the AI uses simple vocabulary and short sentences, and every AI turn comes with 2 suggested replies ("You could say") — tap a suggestion to hear it via TTS, then say it yourself.
+   - **Medium**: no automatic help, but an "I'm stuck" button asks the AI for 2 reply hints on demand.
+   - **Hard**: no hints at all; the AI speaks naturally with idioms, like a real conversation.
+5. **Session debrief** — a "Finish" button generates a review in Russian: overview, "what you said → what a native would say" pairs, vocabulary to remember, praise. Without this, progress is lost between sessions.
+6. **"I'm stuck" button** — when the user freezes, the AI offers 2 English replies he could say (available on Easy and Medium).
 
 ### Phase 3 — Latency & comfort
 
@@ -135,11 +138,16 @@ User speaks
 - The AI's opening turn is stored as a turn with empty `transcript` (rendered without a user bubble, excluded from `history` as a user message)
 - **New chat** button in the header resets the session (AlertDialog confirm when a conversation exists); `useVoiceCapture.cancel()` discards any in-flight recording without triggering transcription
 
+### Coach features (Phase 2)
+- **Difficulty levels** (`easy`/`medium`/`hard`, segmented control on the picker, persisted to localStorage): difficulty adjusts the AI's speech style in the system prompt; on `easy` the `/api/chat` JSON gains a `suggestions` array (2 example replies) rendered as chips under the last AI turn — clicking a chip plays it via TTS
+- **`/api/hint`** (`server/routes/hint.ts`) — "I'm stuck" button (shown on easy+medium): sends history + scenario, returns `{suggestions}` rendered in the same chips UI
+- **`/api/debrief`** (`server/routes/debrief.ts`) — "Finish" button (appears once the user has spoken): sends all turns + coaching notes, returns a Russian review `{overview, corrections[{you,better}], vocabulary[], praise}` rendered by `src/components/SessionReview.tsx` (full-screen overlay with loading/error states, "Start a new conversation" at the bottom)
+
 ---
 
 ## What Still Needs to Be Built ❌
 
-See the **Roadmap** section above — Phase 1 is done; Phase 2 (session debrief, "I'm stuck" button, richer coaching) is the current priority.
+See the **Roadmap** section above — Phases 1 and 2 are done; Phase 3 (streaming TTS, UX polish) is the current priority.
 
 Implementation notes for upcoming items:
 - **Streaming TTS**: today the browser waits for the full mp3 before playback starts; stream Kokoro chunks via chunked transfer or WebSocket.

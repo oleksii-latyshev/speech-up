@@ -1,4 +1,4 @@
-// Scenario personas injected into the /api/chat system prompt.
+// Scenario personas and difficulty styles injected into the /api/chat system prompt.
 // Ids must stay in sync with src/lib/scenarios.ts on the client.
 
 export type ScenarioId =
@@ -10,6 +10,8 @@ export type ScenarioId =
   | "tech-discussion"
   | "casual"
 
+export type Difficulty = "easy" | "medium" | "hard"
+
 const PERSONAS: Record<ScenarioId, string> = {
   "interview-frontend": `You are a friendly but professional job interviewer at a tech company. You are interviewing Oleksii for a Frontend Developer position (React, TypeScript, CSS, web performance). Ask ONE interview question at a time — mix behavioral and technical questions appropriate for a spoken interview. Follow up on his answers like a real interviewer would.`,
   "interview-backend": `You are a friendly but professional job interviewer at a tech company. You are interviewing Oleksii for a Backend Developer position (APIs, databases, system design, reliability). Ask ONE interview question at a time — mix behavioral and technical questions appropriate for a spoken interview. Follow up on his answers like a real interviewer would.`,
@@ -20,7 +22,20 @@ const PERSONAS: Record<ScenarioId, string> = {
   casual: `You are a friendly acquaintance of Oleksii having a relaxed casual chat — weekends, travel, food, movies, hobbies, life. Be warm and curious, react to what he says, and keep the conversation flowing naturally.`,
 }
 
+const DIFFICULTY_STYLE: Record<Difficulty, string> = {
+  easy: `Oleksii is taking his first steps in spoken English: use simple, common vocabulary and short sentences. Ask easy, concrete questions.`,
+  medium: ``,
+  hard: `Speak fully naturally, as you would with a fluent colleague — natural vocabulary, occasional idioms, and questions that require detailed answers.`,
+}
+
 export const isScenarioId = (v: string): v is ScenarioId => v in PERSONAS
+export const isDifficulty = (v: string): v is Difficulty => v in DIFFICULTY_STYLE
+
+export function personaFor(scenario?: ScenarioId): string {
+  return scenario
+    ? PERSONAS[scenario]
+    : "You are a friendly English conversation practice partner."
+}
 
 const COACH_RULES = `Oleksii is a native Russian speaker practicing SPOKEN English. He understands English well but lacks speaking experience — your job is to keep him talking and build his confidence.
 
@@ -30,16 +45,28 @@ Conversation rules:
 - Always end your reply with a question or a prompt that invites him to keep speaking.
 - Never switch to Russian in the "response" field.
 
-For each of his messages (a speech transcript, so ignore punctuation/casing issues) also write a brief coaching note in Russian: grammar slips, unnatural word choice, or a more native way to phrase what he said. If it was correct and natural, say "Отлично!" or similar.
+For each of his messages (a speech transcript, so ignore punctuation/casing issues) also write a brief coaching note in Russian: grammar slips, unnatural word choice, or a more native way to phrase what he said. If it was correct and natural, say "Отлично!" or similar.`
 
-Respond ONLY with valid JSON, no markdown fences, no extra text:
-{"response": "<your English reply>", "coaching": "<Russian coaching note>"}`
+const SUGGESTIONS_RULE = `Also include "suggestions": exactly 2 different short example replies Oleksii could say next in response to you (first person, spoken style, max 12 simple words each).`
 
-export function buildSystemPrompt(scenario?: ScenarioId): string {
-  const persona = scenario
-    ? PERSONAS[scenario]
-    : "You are a friendly English conversation practice partner."
-  return `${persona}\n\n${COACH_RULES}`
+export function buildSystemPrompt(
+  scenario?: ScenarioId,
+  difficulty: Difficulty = "medium",
+): string {
+  const withSuggestions = difficulty === "easy"
+  const format = withSuggestions
+    ? `{"response": "<your English reply>", "coaching": "<Russian coaching note>", "suggestions": ["<reply option 1>", "<reply option 2>"]}`
+    : `{"response": "<your English reply>", "coaching": "<Russian coaching note>"}`
+
+  return [
+    personaFor(scenario),
+    DIFFICULTY_STYLE[difficulty],
+    COACH_RULES,
+    withSuggestions ? SUGGESTIONS_RULE : "",
+    `Respond ONLY with valid JSON, no markdown fences, no extra text:\n${format}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n")
 }
 
 export const OPENING_INSTRUCTION = `(The session has just started — Oleksii hasn't said anything yet. Greet him briefly in your role and ask your opening question. Set "coaching" to an empty string.)`

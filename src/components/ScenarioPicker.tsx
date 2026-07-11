@@ -1,9 +1,11 @@
 import { ArrowRight } from "lucide-react"
-import { SCENARIOS, type ScenarioId } from "@/lib/scenarios"
+import { DIFFICULTIES, SCENARIOS, type Difficulty, type ScenarioId } from "@/lib/scenarios"
 import { cn } from "@/lib/utils"
 
 interface ScenarioPickerProps {
   onPick: (id: ScenarioId) => void
+  difficulty: Difficulty
+  onDifficultyChange: (d: Difficulty) => void
   disabled?: boolean
 }
 
@@ -13,11 +15,18 @@ const cardBase =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
   "disabled:pointer-events-none disabled:opacity-50"
 
-export function ScenarioPicker({ onPick, disabled }: ScenarioPickerProps) {
+export function ScenarioPicker({
+  onPick,
+  difficulty,
+  onDifficultyChange,
+  disabled,
+}: ScenarioPickerProps) {
+  const activeDifficulty = DIFFICULTIES.find((d) => d.id === difficulty)!
+
   return (
     <div className="flex flex-1 items-center justify-center overflow-y-auto px-4 py-8">
       <div className="w-full max-w-2xl">
-        <div className="mb-8 text-center">
+        <div className="mb-6 text-center">
           <p className="mb-2 text-xs font-medium tracking-widest text-muted-foreground uppercase">
             Practice session
           </p>
@@ -26,6 +35,30 @@ export function ScenarioPicker({ onPick, disabled }: ScenarioPickerProps) {
           </h2>
           <p className="mt-2 text-sm text-muted-foreground text-balance">
             Pick a scenario — the AI starts the conversation, you just answer.
+          </p>
+        </div>
+
+        <div className="mb-6">
+          <div className="mx-auto grid w-full max-w-xs grid-cols-3 gap-1 rounded-2xl border border-border bg-card p-1">
+            {DIFFICULTIES.map((d) => (
+              <button
+                key={d.id}
+                onClick={() => onDifficultyChange(d.id)}
+                disabled={disabled}
+                className={cn(
+                  "rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  difficulty === d.id
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-center text-xs text-muted-foreground text-balance">
+            {activeDifficulty.description}
           </p>
         </div>
 

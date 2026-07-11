@@ -1,8 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from "react"
-import { Mic, MicOff, Loader2, RotateCcw, Settings, X, Volume2 } from "lucide-react"
+import { ClipboardCheck, Lightbulb, Mic, MicOff, Loader2, RotateCcw, Settings, X, Volume2 } from "lucide-react"
 import { useVoiceCapture, type CaptureStatus } from "@/hooks/useVoiceCapture"
 import { ScenarioPicker } from "@/components/ScenarioPicker"
-import { scenarioTitle, type ScenarioId } from "@/lib/scenarios"
+import { SessionReview, type SessionReviewData } from "@/components/SessionReview"
+import { scenarioTitle, type Difficulty, type ScenarioId } from "@/lib/scenarios"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +48,7 @@ const DEFAULT_SILENCE_MS = 2500
 const VOICE_STORAGE_KEY = "speech-up:voice"
 const THEME_STORAGE_KEY = "speech-up:theme"
 const SILENCE_STORAGE_KEY = "speech-up:silence-ms"
+const DIFFICULTY_STORAGE_KEY = "speech-up:difficulty"
 const VOICE_PREVIEW_TEXT = "Hello! I'm your English conversation partner. Let's practice together."
 
 function applyTheme(theme: Theme) {
@@ -87,7 +89,8 @@ async function sendChat(body: {
   history: { role: string; content: string }[]
   scenario: ScenarioId
   start?: boolean
-}): Promise<{ response: string; coaching: string }> {
+  difficulty: Difficulty
+}): Promise<{ response: string; coaching: string; suggestions?: string[] }> {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -119,17 +122,28 @@ export default function App() {
       ? stored
       : DEFAULT_SILENCE_MS
   })
+  const [difficulty, setDifficulty] = useState<Difficulty>(() => {
+    const stored = localStorage.getItem(DIFFICULTY_STORAGE_KEY)
+    return stored === "easy" || stored === "medium" || stored === "hard" ? stored : "easy"
+  })
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [scenario, setScenario] = useState<ScenarioId | null>(null)
   const [isStarting, setIsStarting] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
   const [turns, setTurns] = useState<Turn[]>([])
+  const [suggestions, setSuggestions] = useState<string[] | null>(null)
+  const [hintLoading, setHintLoading] = useState(false)
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [reviewLoading, setReviewLoading] = useState(false)
+  const [review, setReview] = useState<SessionReviewData | null>(null)
+  const [reviewError, setReviewError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
 
   const turnsRef = useRef<Turn[]>([])
   const voiceRef = useRef<string>(voice)
   const scenarioRef = useRef<ScenarioId | null>(scenario)
+  const difficultyRef = useRef<Difficulty>(difficulty)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -137,7 +151,8 @@ export default function App() {
     turnsRef.current = turns
     voiceRef.current = voice
     scenarioRef.current = scenario
-  }, [turns, voice, scenario])
+    difficultyRef.current = difficulty
+  }, [turns, voice, scenario, difficulty])
 
   useEffect(() => {
     applyTheme(theme)
@@ -197,6 +212,11 @@ export default function App() {
     localStorage.setItem(SILENCE_STORAGE_KEY, String(ms))
   }
 
+  const handleDifficultyChange = (d: Difficulty) => {
+    setDifficulty(d)
+    localStorage.setItem(DIFFICULTY_STORAGE_KEY, d)
+  }
+
   const handleVoiceClick = (v: string) => {
     handleVoiceChange(v)
     playTTS(VOICE_PREVIEW_TEXT, v)
@@ -209,12 +229,14 @@ export default function App() {
     stopAudio()
     try {
       const transcript = await transcribeAudio(blob)
-      const { response, coaching } = await sendChat({
+      const { response, coaching, suggestions: nextSuggestions } = await sendChat({
         transcript,
         history: historyFromTurns(turnsRef.current),
         scenario: activeScenario,
+        difficulty: difficultyRef.current,
       })
       setTurns((prev) => [...prev, { transcript, response, coaching }])
+      setSuggestions(nextSuggestions?.length ? nextSuggestions : null)
       await playTTS(response)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error")
@@ -231,8 +253,14 @@ export default function App() {
     setError(null)
     setIsStarting(true)
     try {
-      const { response } = await sendChat({ history: [], scenario: id, start: true })
+      const { response, suggestions: nextSuggestions } = await sendChat({
+        history: [],
+        scenario: id,
+        start: true,
+        difficulty,
+      })
       setTurns([{ transcript: "", response, coaching: "" }])
+      setSuggestions(nextSuggestions?.length ? nextSuggestions : null)
       setIsStarting(false)
       await playTTS(response)
     } catch (err) {
@@ -241,11 +269,62 @@ export default function App() {
     }
   }
 
+  const requestHint = async () => {
+    if (!scenario || hintLoading) return
+    setHintLoading(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/hint", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenario, history: historyFromTurns(turns) }),
+      })
+      if (!res.ok) throw new Error(`Hint error ${res.status}`)
+      const { suggestions: hints } = (await res.json()) as { suggestions: string[] }
+      setSuggestions(hints.length ? hints : null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error")
+    } finally {
+      setHintLoading(false)
+    }
+  }
+
+  const fetchReview = async () => {
+    setReviewLoading(true)
+    setReviewError(null)
+    try {
+      const res = await fetch("/api/debrief", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenario, turns }),
+      })
+      if (!res.ok) throw new Error(`Review error ${res.status}`)
+      setReview((await res.json()) as SessionReviewData)
+    } catch (err) {
+      setReviewError(err instanceof Error ? err.message : "Unknown error")
+    } finally {
+      setReviewLoading(false)
+    }
+  }
+
+  const openReview = () => {
+    cancel()
+    stopAudio()
+    setReviewOpen(true)
+    setReview(null)
+    void fetchReview()
+  }
+
   const resetSession = () => {
     cancel()
     stopAudio()
     setTurns([])
     setScenario(null)
+    setSuggestions(null)
+    setHintLoading(false)
+    setReviewOpen(false)
+    setReview(null)
+    setReviewError(null)
     setError(null)
     setIsStarting(false)
     setResetOpen(false)
@@ -278,6 +357,16 @@ export default function App() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {scenario && turns.some((t) => t.transcript) && (
+            <button
+              onClick={openReview}
+              disabled={isProcessing || isStarting}
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+            >
+              <ClipboardCheck className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Finish</span>
+            </button>
+          )}
           {scenario && (
             <button
               onClick={handleNewConversation}
@@ -316,7 +405,12 @@ export default function App() {
       </header>
 
       {!scenario ? (
-        <ScenarioPicker onPick={handlePickScenario} disabled={isStarting} />
+        <ScenarioPicker
+          onPick={handlePickScenario}
+          difficulty={difficulty}
+          onDifficultyChange={handleDifficultyChange}
+          disabled={isStarting}
+        />
       ) : (
         <>
           {/* Conversation */}
@@ -353,12 +447,49 @@ export default function App() {
               </div>
             )}
 
+            {suggestions && !isStarting && (
+              <div className="space-y-1.5">
+                <p className="flex items-center gap-1 text-[10px] font-medium tracking-widest text-muted-foreground uppercase">
+                  <Lightbulb className="size-3" />
+                  You could say
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      onClick={() => playTTS(s)}
+                      className="flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 px-3.5 py-1.5 text-left text-xs font-medium text-sky-700 transition-colors hover:bg-sky-500/20 dark:text-sky-300"
+                      title="Tap to hear it, then say it yourself"
+                    >
+                      <Volume2 className="size-3 shrink-0 opacity-60" />
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {error && <p className="text-center text-sm text-red-400">{error}</p>}
             <div ref={bottomRef} />
           </div>
 
           {/* Controls */}
-          <div className="flex shrink-0 flex-col items-center gap-3 border-t px-4 py-4">
+          <div className="relative flex shrink-0 flex-col items-center gap-3 border-t px-4 py-4">
+            {difficulty !== "hard" && turns.length > 0 && (
+              <button
+                onClick={requestHint}
+                disabled={hintLoading || isProcessing || isStarting}
+                className="absolute top-1/2 right-4 flex -translate-y-1/2 items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-sky-500/40 hover:text-sky-600 disabled:opacity-50 dark:hover:text-sky-400"
+                aria-label="Give me a hint"
+              >
+                {hintLoading ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Lightbulb className="size-3.5" />
+                )}
+                <span className="hidden sm:inline">I'm stuck</span>
+              </button>
+            )}
             {mode === "auto" ? (
               <button
                 onClick={handleAutoClick}
@@ -422,6 +553,18 @@ export default function App() {
             </p>
           </div>
         </>
+      )}
+
+      {/* Session review */}
+      {reviewOpen && (
+        <SessionReview
+          loading={reviewLoading}
+          data={review}
+          error={reviewError}
+          onClose={() => setReviewOpen(false)}
+          onRetry={() => void fetchReview()}
+          onNewConversation={resetSession}
+        />
       )}
 
       {/* New conversation confirm */}
