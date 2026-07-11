@@ -49,6 +49,7 @@ const VOICE_STORAGE_KEY = "speech-up:voice"
 const THEME_STORAGE_KEY = "speech-up:theme"
 const SILENCE_STORAGE_KEY = "speech-up:silence-ms"
 const DIFFICULTY_STORAGE_KEY = "speech-up:difficulty"
+const VOICE_ENABLED_STORAGE_KEY = "speech-up:voice-enabled"
 const VOICE_PREVIEW_TEXT = "Hello! I'm your English conversation partner. Let's practice together."
 
 function applyTheme(theme: Theme) {
@@ -84,20 +85,72 @@ async function transcribeAudio(blob: Blob): Promise<string> {
   return ((await res.json()) as { transcript: string }).transcript
 }
 
-async function sendChat(body: {
-  transcript?: string
-  history: { role: string; content: string }[]
-  scenario: ScenarioId
-  start?: boolean
-  difficulty: Difficulty
-}): Promise<{ response: string; coaching: string; suggestions?: string[] }> {
+type ChatEvent =
+  | { t: "delta"; x: string }
+  | { t: "response"; x: string }
+  | { t: "coaching"; x: string }
+  | { t: "suggestions"; x: string[] }
+  | { t: "done" }
+  | { t: "error"; x: string }
+
+// Streams /api/chat NDJSON events. onDelta gets the accumulated reply text as it
+// grows; onResponse fires once the English reply is complete (before coaching).
+async function streamChat(
+  body: {
+    transcript?: string
+    history: { role: string; content: string }[]
+    scenario: ScenarioId
+    start?: boolean
+    difficulty: Difficulty
+  },
+  callbacks: { onDelta: (text: string) => void; onResponse: (text: string) => void },
+): Promise<{ response: string; coaching: string; suggestions?: string[] }> {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`LLM error ${res.status}`)
-  return res.json()
+  if (!res.ok || !res.body) throw new Error(`LLM error ${res.status}`)
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buf = ""
+  let acc = ""
+  let response = ""
+  let coaching = ""
+  let suggestions: string[] | undefined
+
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buf += decoder.decode(value, { stream: true })
+    const lines = buf.split("\n")
+    buf = lines.pop()!
+    for (const line of lines) {
+      if (!line.trim()) continue
+      const ev = JSON.parse(line) as ChatEvent
+      if (ev.t === "delta") {
+        acc += ev.x
+        callbacks.onDelta(acc)
+      } else if (ev.t === "response") {
+        response = ev.x
+        callbacks.onResponse(response)
+      } else if (ev.t === "coaching") {
+        coaching = ev.x
+      } else if (ev.t === "suggestions") {
+        suggestions = ev.x
+      } else if (ev.t === "error") {
+        throw new Error(ev.x)
+      }
+    }
+  }
+  return { response: response || acc.trim(), coaching, suggestions }
+}
+
+// Splits text into sentences for pipelined TTS (synthesize next while playing current)
+function splitSentences(text: string): string[] {
+  const parts = text.match(/[^.!?]+[.!?]*/g)?.map((s) => s.trim()).filter(Boolean)
+  return parts?.length ? parts : [text]
 }
 
 function historyFromTurns(turns: Turn[]) {
@@ -112,6 +165,9 @@ export default function App() {
   const [mode, setMode] = useState<CaptureMode>("auto")
   const [voice, setVoice] = useState<string>(
     () => localStorage.getItem(VOICE_STORAGE_KEY) ?? DEFAULT_VOICE,
+  )
+  const [voiceEnabled, setVoiceEnabled] = useState<boolean>(
+    () => localStorage.getItem(VOICE_ENABLED_STORAGE_KEY) !== "off",
   )
   const [theme, setTheme] = useState<Theme>(
     () => (localStorage.getItem(THEME_STORAGE_KEY) as Theme | null) ?? "system",
@@ -131,6 +187,9 @@ export default function App() {
   const [isStarting, setIsStarting] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
   const [turns, setTurns] = useState<Turn[]>([])
+  const [phase, setPhase] = useState<"transcribing" | "thinking" | null>(null)
+  const [pendingTranscript, setPendingTranscript] = useState<string | null>(null)
+  const [streamingText, setStreamingText] = useState<string | null>(null)
   const [suggestions, setSuggestions] = useState<string[] | null>(null)
   const [hintLoading, setHintLoading] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
@@ -142,6 +201,7 @@ export default function App() {
 
   const turnsRef = useRef<Turn[]>([])
   const voiceRef = useRef<string>(voice)
+  const voiceEnabledRef = useRef<boolean>(voiceEnabled)
   const scenarioRef = useRef<ScenarioId | null>(scenario)
   const difficultyRef = useRef<Difficulty>(difficulty)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -150,9 +210,10 @@ export default function App() {
   useEffect(() => {
     turnsRef.current = turns
     voiceRef.current = voice
+    voiceEnabledRef.current = voiceEnabled
     scenarioRef.current = scenario
     difficultyRef.current = difficulty
-  }, [turns, voice, scenario, difficulty])
+  }, [turns, voice, voiceEnabled, scenario, difficulty])
 
   useEffect(() => {
     applyTheme(theme)
@@ -165,35 +226,69 @@ export default function App() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [turns, isStarting])
+  }, [turns, isStarting, pendingTranscript, streamingText])
+
+  // Bumping the generation counter invalidates any in-flight playback queue
+  const playSeqRef = useRef(0)
 
   const stopAudio = () => {
+    playSeqRef.current++
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current = null
-      setIsPlaying(false)
     }
+    setIsPlaying(false)
   }
 
-  const playTTS = useCallback(async (text: string, voiceOverride?: string) => {
-    stopAudio()
-    setIsPlaying(true)
-    try {
-      const res = await fetch("/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, voice: voiceOverride ?? voiceRef.current }),
-      })
-      if (!res.ok) throw new Error(`TTS error ${res.status}`)
-      const blob = await res.blob()
+  const playBlob = (blob: Blob) =>
+    new Promise<void>((resolve) => {
       const url = URL.createObjectURL(blob)
       const audio = new Audio(url)
       audioRef.current = audio
-      audio.onended = () => { URL.revokeObjectURL(url); setIsPlaying(false); audioRef.current = null }
-      audio.onerror = () => { URL.revokeObjectURL(url); setIsPlaying(false); audioRef.current = null }
-      await audio.play()
+      const finish = () => {
+        URL.revokeObjectURL(url)
+        resolve()
+      }
+      audio.onended = finish
+      audio.onerror = finish
+      audio.play().catch(finish)
+    })
+
+  // Plays text sentence-by-sentence, synthesizing the next sentence while the
+  // current one plays, so audio starts as soon as the first sentence is ready.
+  const playTTS = useCallback(async (text: string, voiceOverride?: string) => {
+    stopAudio()
+    const gen = ++playSeqRef.current
+    const voice = voiceOverride ?? voiceRef.current
+    const sentences = splitSentences(text)
+
+    const fetchTTS = async (t: string) => {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: t, voice }),
+      })
+      if (!res.ok) throw new Error(`TTS error ${res.status}`)
+      return res.blob()
+    }
+
+    setIsPlaying(true)
+    try {
+      let next = fetchTTS(sentences[0])
+      for (let i = 0; i < sentences.length; i++) {
+        const blob = await next
+        if (playSeqRef.current !== gen) return
+        if (i + 1 < sentences.length) next = fetchTTS(sentences[i + 1])
+        await playBlob(blob)
+        if (playSeqRef.current !== gen) return
+      }
     } catch {
-      setIsPlaying(false)
+      // playback is best-effort; text is already on screen
+    } finally {
+      if (playSeqRef.current === gen) {
+        audioRef.current = null
+        setIsPlaying(false)
+      }
     }
   }, [])
 
@@ -217,6 +312,12 @@ export default function App() {
     localStorage.setItem(DIFFICULTY_STORAGE_KEY, d)
   }
 
+  const handleVoiceEnabledChange = (on: boolean) => {
+    setVoiceEnabled(on)
+    localStorage.setItem(VOICE_ENABLED_STORAGE_KEY, on ? "on" : "off")
+    if (!on) stopAudio()
+  }
+
   const handleVoiceClick = (v: string) => {
     handleVoiceChange(v)
     playTTS(VOICE_PREVIEW_TEXT, v)
@@ -226,20 +327,35 @@ export default function App() {
     const activeScenario = scenarioRef.current
     if (!activeScenario) return
     setError(null)
+    setSuggestions(null)
     stopAudio()
     try {
+      setPhase("transcribing")
       const transcript = await transcribeAudio(blob)
-      const { response, coaching, suggestions: nextSuggestions } = await sendChat({
-        transcript,
-        history: historyFromTurns(turnsRef.current),
-        scenario: activeScenario,
-        difficulty: difficultyRef.current,
-      })
+      setPendingTranscript(transcript)
+      setPhase("thinking")
+      setStreamingText("")
+      const { response, coaching, suggestions: nextSuggestions } = await streamChat(
+        {
+          transcript,
+          history: historyFromTurns(turnsRef.current),
+          scenario: activeScenario,
+          difficulty: difficultyRef.current,
+        },
+        {
+          onDelta: setStreamingText,
+          // speak while coaching still generates (unless voice is off)
+          onResponse: (text) => { if (voiceEnabledRef.current) void playTTS(text) },
+        },
+      )
       setTurns((prev) => [...prev, { transcript, response, coaching }])
       setSuggestions(nextSuggestions?.length ? nextSuggestions : null)
-      await playTTS(response)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error")
+    } finally {
+      setPhase(null)
+      setPendingTranscript(null)
+      setStreamingText(null)
     }
   }, [playTTS])
 
@@ -252,20 +368,22 @@ export default function App() {
     setScenario(id)
     setError(null)
     setIsStarting(true)
+    setStreamingText("")
     try {
-      const { response, suggestions: nextSuggestions } = await sendChat({
-        history: [],
-        scenario: id,
-        start: true,
-        difficulty,
-      })
+      const { response, suggestions: nextSuggestions } = await streamChat(
+        { history: [], scenario: id, start: true, difficulty },
+        {
+          onDelta: setStreamingText,
+          onResponse: (text) => { if (voiceEnabledRef.current) void playTTS(text) },
+        },
+      )
       setTurns([{ transcript: "", response, coaching: "" }])
       setSuggestions(nextSuggestions?.length ? nextSuggestions : null)
-      setIsStarting(false)
-      await playTTS(response)
     } catch (err) {
-      setIsStarting(false)
       setError(err instanceof Error ? err.message : "Unknown error")
+    } finally {
+      setIsStarting(false)
+      setStreamingText(null)
     }
   }
 
@@ -320,6 +438,9 @@ export default function App() {
     stopAudio()
     setTurns([])
     setScenario(null)
+    setPhase(null)
+    setPendingTranscript(null)
+    setStreamingText(null)
     setSuggestions(null)
     setHintLoading(false)
     setReviewOpen(false)
@@ -437,15 +558,33 @@ export default function App() {
               </div>
             ))}
 
-            {isStarting && (
-              <div className="flex justify-start">
-                <div className="flex items-center gap-1 rounded-2xl rounded-tl-sm bg-muted px-4 py-3.5">
-                  <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.3s]" />
-                  <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.15s]" />
-                  <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/60" />
+            {pendingTranscript && (
+              <div className="flex justify-end">
+                <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2">
+                  <p className="text-sm text-primary-foreground">{pendingTranscript}</p>
                 </div>
               </div>
             )}
+
+            {streamingText !== null &&
+              (streamingText ? (
+                <div className="flex justify-start">
+                  <div className="max-w-[80%] rounded-2xl rounded-tl-sm bg-muted px-4 py-2">
+                    <p className="text-sm">
+                      {streamingText}
+                      <span className="ml-1 inline-block h-3.5 w-0.5 animate-pulse rounded-full bg-muted-foreground/70 align-middle" />
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-start">
+                  <div className="flex items-center gap-1 rounded-2xl rounded-tl-sm bg-muted px-4 py-3.5">
+                    <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.3s]" />
+                    <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.15s]" />
+                    <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/60" />
+                  </div>
+                </div>
+              ))}
 
             {suggestions && !isStarting && (
               <div className="space-y-1.5">
@@ -542,14 +681,18 @@ export default function App() {
               </button>
             )}
 
-            <p className={`text-xs font-medium transition-colors ${isPlaying ? "text-violet-400" : STATUS_COLOR[status]}`}>
+            <p className={`text-xs font-medium transition-colors ${isPlaying ? "text-violet-400" : phase ? "text-yellow-400" : STATUS_COLOR[status]}`}>
               {isPlaying
                 ? "Speaking… (tap to skip)"
-                : isStarting
-                  ? "Starting conversation…"
-                  : mode === "ptt" && status === "idle"
-                    ? "Hold to speak"
-                    : STATUS_LABEL[status]}
+                : phase === "transcribing"
+                  ? "Transcribing…"
+                  : phase === "thinking"
+                    ? "Thinking…"
+                    : isStarting
+                      ? "Starting conversation…"
+                      : mode === "ptt" && status === "idle"
+                        ? "Hold to speak"
+                        : STATUS_LABEL[status]}
             </p>
           </div>
         </>
@@ -645,6 +788,35 @@ export default function App() {
                 How long Speech Up waits in silence before deciding you finished your
                 thought (Auto mode). Take your time — it will never cut you off.
               </p>
+            </div>
+
+            {/* Voice on/off */}
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-medium">Speak replies aloud</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Turn off to read replies as text only — the fastest way to keep the
+                  conversation flowing. Suggestion chips still play when tapped.
+                </p>
+              </div>
+              <button
+                role="switch"
+                aria-checked={voiceEnabled}
+                aria-label="Speak replies aloud"
+                onClick={() => handleVoiceEnabledChange(!voiceEnabled)}
+                className={[
+                  "relative h-6 w-10 shrink-0 rounded-full transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  voiceEnabled ? "bg-primary" : "bg-muted-foreground/30",
+                ].join(" ")}
+              >
+                <span
+                  className={[
+                    "absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow-sm transition-transform",
+                    voiceEnabled ? "translate-x-4" : "",
+                  ].join(" ")}
+                />
+              </button>
             </div>
 
             {/* AI Voice */}

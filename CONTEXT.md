@@ -33,10 +33,10 @@ Conversation alone is practice, but confidence grows from feedback and from over
 5. **Session debrief** — a "Finish" button generates a review in Russian: overview, "what you said → what a native would say" pairs, vocabulary to remember, praise. Without this, progress is lost between sessions.
 6. **"I'm stuck" button** — when the user freezes, the AI offers 2 English replies he could say (available on Easy and Medium).
 
-### Phase 3 — Latency & comfort
+### Phase 3 — Latency & comfort ✅ (done)
 
-7. **Streaming TTS** — stream Kokoro mp3 chunks (chunked transfer); ideally also stream the LLM response and synthesize sentence-by-sentence. Cuts the "AI is thinking" pause.
-8. **UX polish** — explicit status states (Transcribing → Thinking → Speaking); show the user's transcript immediately after STT, before the LLM reply arrives.
+7. **Streaming pipeline** — the LLM response streams token-by-token into the chat bubble, and TTS starts as soon as the English reply section is complete (while the coaching note is still generating). Audio is synthesized and played sentence-by-sentence with prefetch. Perceived wait dropped from ~15–30 s to ~3–5 s before the voice starts.
+8. **UX polish** — explicit status states (Transcribing → Thinking → Speaking); the user's transcript appears immediately after STT, before the LLM reply arrives.
 
 ### Phase 4 — Progress & history
 
@@ -138,6 +138,13 @@ User speaks
 - The AI's opening turn is stored as a turn with empty `transcript` (rendered without a user bubble, excluded from `history` as a user message)
 - **New chat** button in the header resets the session (AlertDialog confirm when a conversation exists); `useVoiceCapture.cancel()` discards any in-flight recording without triggering transcription
 
+### Streaming pipeline (Phase 3)
+- Model output format is plain text with `---` separators (reply / coaching / suggestions) instead of JSON — enables streaming and is more robust for a small model
+- `/api/chat` streams NDJSON events: `{"t":"delta"}` per token chunk, `{"t":"response"}` when the English reply is complete (client starts TTS here), then `{"t":"coaching"}`, `{"t":"suggestions"}` (easy only), `{"t":"done"}`; the server holds back a small tail so a partial `\n---` never leaks into deltas
+- Client (`streamChat` in `src/App.tsx`): growing AI bubble with a cursor while streaming; typing dots before the first token
+- `playTTS` splits text into sentences and pipelines them: the next sentence is synthesized while the current one plays (generation counter `playSeqRef` invalidates the queue on skip/reset)
+- User transcript renders immediately after STT (`pendingTranscript`); status label shows Transcribing… / Thinking… (`phase` state)
+
 ### Coach features (Phase 2)
 - **Difficulty levels** (`easy`/`medium`/`hard`, segmented control on the picker, persisted to localStorage): difficulty adjusts the AI's speech style in the system prompt; on `easy` the `/api/chat` JSON gains a `suggestions` array (2 example replies) rendered as chips under the last AI turn — clicking a chip plays it via TTS
 - **`/api/hint`** (`server/routes/hint.ts`) — "I'm stuck" button (shown on easy+medium): sends history + scenario, returns `{suggestions}` rendered in the same chips UI
@@ -147,10 +154,7 @@ User speaks
 
 ## What Still Needs to Be Built ❌
 
-See the **Roadmap** section above — Phases 1 and 2 are done; Phase 3 (streaming TTS, UX polish) is the current priority.
-
-Implementation notes for upcoming items:
-- **Streaming TTS**: today the browser waits for the full mp3 before playback starts; stream Kokoro chunks via chunked transfer or WebSocket.
+See the **Roadmap** section above — Phases 1–3 are done; Phase 4 (SQLite persistence, progress screen, warm-up on past mistakes) is the current priority.
 
 ---
 

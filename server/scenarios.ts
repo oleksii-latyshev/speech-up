@@ -47,7 +47,7 @@ Conversation rules:
 
 For each of his messages (a speech transcript, so ignore punctuation/casing issues) also write a brief coaching note in Russian: grammar slips, unnatural word choice, or a more native way to phrase what he said. If it was correct and natural, say "Отлично!" or similar.`
 
-const SUGGESTIONS_RULE = `Also include "suggestions": exactly 2 different short example replies Oleksii could say next in response to you (first person, spoken style, max 12 simple words each).`
+const SUGGESTIONS_RULE = `The third section: exactly 2 different short example replies Oleksii could say next in response to you (first person, spoken style, max 12 simple words each), one per line.`
 
 export function buildSystemPrompt(
   scenario?: ScenarioId,
@@ -55,18 +55,18 @@ export function buildSystemPrompt(
 ): string {
   const withSuggestions = difficulty === "easy"
   const format = withSuggestions
-    ? `{"response": "<your English reply>", "coaching": "<Russian coaching note>", "suggestions": ["<reply option 1>", "<reply option 2>"]}`
-    : `{"response": "<your English reply>", "coaching": "<Russian coaching note>"}`
+    ? `<your English reply>\n---\n<Russian coaching note>\n---\n<example reply 1>\n<example reply 2>`
+    : `<your English reply>\n---\n<Russian coaching note>`
 
   return [
     personaFor(scenario),
     DIFFICULTY_STYLE[difficulty],
     COACH_RULES,
     withSuggestions ? SUGGESTIONS_RULE : "",
-    `Respond ONLY with valid JSON, no markdown fences, no extra text:\n${format}`,
+    `Answer in EXACTLY this plain-text format — sections separated by a line containing only "---". No JSON, no markdown, no section titles:\n${format}`,
   ]
     .filter(Boolean)
     .join("\n\n")
 }
 
-export const OPENING_INSTRUCTION = `(The session has just started — Oleksii hasn't said anything yet. Greet him briefly in your role and ask your opening question. Set "coaching" to an empty string.)`
+export const OPENING_INSTRUCTION = `(The session has just started — Oleksii hasn't said anything yet. Greet him briefly in your role and ask your opening question. Leave the coaching section empty — nothing between the separators.)`
