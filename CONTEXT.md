@@ -10,7 +10,7 @@ Build a speaking trainer that lets a person improve their **spoken** English **w
 
 Phases are ordered by how much they contribute to the goal above ("start speaking confidently"), not by ease of implementation.
 
-### Phase 1 — Trainer core (do first)
+### Phase 1 — Trainer core ✅ (done)
 
 The minimum after which the app is usable for daily practice.
 
@@ -123,18 +123,25 @@ User speaks
 
 ### Settings Panel
 - **Theme**: System / Light / Dark (persisted to localStorage, applies `.dark` class)
+- **Pause before sending**: slider 1–5 s (step 0.25 s) controlling the VAD `silenceDuration`, persisted to localStorage
 - **AI Voice**: All Kokoro English voices in a 3-column grid, grouped by accent+gender
 - Click any voice → selects it AND immediately previews it (no separate preview button)
 - Voice choice persisted to localStorage
+
+### Scenarios (Phase 1)
+- `server/scenarios.ts` — personas: interview (frontend / backend / fullstack / general), daily standup, technical discussion, casual chat; shared coaching rules appended to every persona
+- `/api/chat` accepts `scenario` (id) and `start` (boolean); with `start: true` the AI opens the conversation (greeting + first question), `coaching` empty
+- `src/components/ScenarioPicker.tsx` — card-grid picker shown before the first turn; interview card has 4 role chips; ids in `src/lib/scenarios.ts` mirror the server
+- The AI's opening turn is stored as a turn with empty `transcript` (rendered without a user bubble, excluded from `history` as a user message)
+- **New chat** button in the header resets the session (AlertDialog confirm when a conversation exists); `useVoiceCapture.cancel()` discards any in-flight recording without triggering transcription
 
 ---
 
 ## What Still Needs to Be Built ❌
 
-See the **Roadmap** section above — Phase 1 (Scenario Selector, Session Reset, Silence Threshold Setting) is the current priority.
+See the **Roadmap** section above — Phase 1 is done; Phase 2 (session debrief, "I'm stuck" button, richer coaching) is the current priority.
 
 Implementation notes for upcoming items:
-- **Silence Threshold**: `silenceDuration` is currently hardcoded to 2500 ms in `useVoiceCapture`.
 - **Streaming TTS**: today the browser waits for the full mp3 before playback starts; stream Kokoro chunks via chunked transfer or WebSocket.
 
 ---

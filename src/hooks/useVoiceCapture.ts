@@ -22,6 +22,7 @@ export function useVoiceCapture({
   const chunksRef   = useRef<Blob[]>([])
   const audioCtxRef = useRef<AudioContext | null>(null)
   const rafRef      = useRef<number | null>(null)
+  const discardRef  = useRef(false)
 
   // Called by recorder.onstop in both modes
   const finalise = useCallback(
@@ -32,6 +33,11 @@ export function useVoiceCapture({
       chunksRef.current = []
       streamRef.current?.getTracks().forEach((t) => t.stop())
       streamRef.current = null
+      if (discardRef.current) {
+        discardRef.current = false
+        setStatus("idle")
+        return
+      }
       setStatus("processing")
       await onAudioReady(blob)
       setStatus("idle")
@@ -136,6 +142,21 @@ export function useVoiceCapture({
     }
   }, [])
 
+  // Stop everything and throw away any in-flight recording (no onAudioReady)
+  const cancel = useCallback(() => {
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
+    audioCtxRef.current?.close()
+    audioCtxRef.current = null
+    if (recorderRef.current?.state === "recording") {
+      discardRef.current = true
+      recorderRef.current.stop() // finalise sees the flag and drops the blob
+    } else {
+      streamRef.current?.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+      setStatus("idle")
+    }
+  }, [])
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -145,5 +166,5 @@ export function useVoiceCapture({
     }
   }, [])
 
-  return { status, startAuto, stopAuto, pttStart, pttStop }
+  return { status, startAuto, stopAuto, pttStart, pttStop, cancel }
 }
