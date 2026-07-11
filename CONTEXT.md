@@ -2,6 +2,50 @@
 
 AI-powered English speaking coach for a native Russian speaker (Oleksii). Local, privacy-first, runs entirely on the user's machine via Docker.
 
+## Goal
+
+Build a speaking trainer that lets a person improve their **spoken** English **without any human involvement**. The target user already understands English well by ear and reads fluently, but has little to no real conversation experience. The app must take them from "I understand but freeze when I have to speak" to **speaking confidently**: it creates realistic conversation situations, gives the user unlimited safe practice, never interrupts their thinking pauses, and coaches them (in Russian) on how to sound more natural — so that regular sessions translate directly into confidence in real-life English conversations (interviews, standups, technical and casual talk).
+
+## Roadmap
+
+Phases are ordered by how much they contribute to the goal above ("start speaking confidently"), not by ease of implementation.
+
+### Phase 1 — Trainer core (do first)
+
+The minimum after which the app is usable for daily practice.
+
+1. **Scenario Selector** (top priority)
+   - Scenario config (id, title, system prompt, AI role): job interview (frontend / backend / fullstack / general), daily standup, technical discussion, casual conversation.
+   - Scenario picker screen shown before the first turn.
+   - Pass the selected scenario to `/api/chat` so the system prompt changes per role.
+   - **Key detail for the goal:** the AI speaks first (asks the opening question as interviewer / teammate). Answering is far easier than starting from a blank page for someone afraid to speak.
+2. **Session Reset** — a "New conversation" button: clears `turns`, returns to the scenario picker. Required for switching scenarios.
+3. **Silence threshold setting** — slider in settings (~1.5–5 s instead of the hardcoded 2500 ms), persisted to localStorage. Everyone's thinking pause is different.
+
+### Phase 2 — Coach features (the main differentiator)
+
+Conversation alone is practice, but confidence grows from feedback and from overcoming the "I don't know how to say this" freeze.
+
+4. **Session debrief** — an "End session" button makes the LLM generate a report in Russian: recurring mistakes, 3–5 "what you said → what a native would say" pairs, vocabulary/expressions to remember. Without this, progress is lost between sessions.
+5. **"I'm stuck" button** — when the user freezes, the AI offers 1–2 English sentence starters. Directly treats the target user's core problem.
+6. **Richer coaching note** — alongside error analysis, show a more natural full rephrasing of what the user just said.
+
+### Phase 3 — Latency & comfort
+
+7. **Streaming TTS** — stream Kokoro mp3 chunks (chunked transfer); ideally also stream the LLM response and synthesize sentence-by-sentence. Cuts the "AI is thinking" pause.
+8. **UX polish** — explicit status states (Transcribing → Thinking → Speaking); show the user's transcript immediately after STT, before the LLM reply arrives.
+
+### Phase 4 — Progress & history
+
+9. **SQLite + Drizzle ORM** — persist sessions, mistakes, and vocabulary across restarts.
+10. **Progress screen** — stats: session count, speaking time, average utterance length, recurring error tags. Visible progress = motivation.
+11. **Warm-up on past mistakes** — at session start the AI prompts the user to use 2–3 phrases from previous debriefs. Simplest form of spaced repetition.
+
+### Phase 5 — Later
+
+12. **Mobile / iOS Safari** — deferred until the desktop core is stable (MediaRecorder / Web Audio quirks).
+13. **Pronunciation feedback** — hard to do locally; possibly experiment with word-level confidence from faster-whisper as a rough signal.
+
 ---
 
 ## Core Idea
@@ -87,29 +131,11 @@ User speaks
 
 ## What Still Needs to Be Built ❌
 
-### Scenario Selector (next priority)
-A screen shown before the first turn that lets the user pick:
-- **Job interview** (frontend / backend / fullstack / general)
-- **Daily standup**
-- **Technical discussion**
-- **Casual conversation**
+See the **Roadmap** section above — Phase 1 (Scenario Selector, Session Reset, Silence Threshold Setting) is the current priority.
 
-Each scenario injects a different system prompt into `/api/chat` so the AI plays the right role (interviewer, teammate, peer, friend).
-
-### Session Reset
-A "New conversation" button that clears `turns` state and starts fresh. Needed especially when switching scenarios.
-
-### Silence Threshold Setting
-Expose the `silenceDuration` (currently hardcoded to 2500 ms) as a user setting in the settings panel. Some users need longer pauses.
-
-### Streaming TTS
-Currently the browser waits for the full mp3 before playback starts. Streaming Kokoro chunks via chunked transfer or WebSocket would reduce perceived latency after the LLM responds.
-
-### Persistent Session History (optional)
-SQLite via Drizzle ORM so conversation history survives page refresh. Not needed for MVP.
-
-### Mobile / iOS Support (deferred)
-MediaRecorder and Web Audio API behave differently on iOS Safari. Defer until core features are stable on desktop.
+Implementation notes for upcoming items:
+- **Silence Threshold**: `silenceDuration` is currently hardcoded to 2500 ms in `useVoiceCapture`.
+- **Streaming TTS**: today the browser waits for the full mp3 before playback starts; stream Kokoro chunks via chunked transfer or WebSocket.
 
 ---
 
