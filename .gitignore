@@ -1,6 +1,10 @@
 .env
 ollama_data/
 
+# local_ai runtime artifacts — auto-downloaded on first start, never commit
+local_ai/.venv/
+local_ai/models/
+
 # Logs
 logs
 *.log
