@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { requestHints, streamChat, transcribe } from "@/core/api"
+import {
+  createSession,
+  endSession,
+  requestHints,
+  saveTurn,
+  streamChat,
+  transcribe,
+} from "@/core/api"
 import type { TtsPlayer } from "@/core/audio"
 import { useVoiceCapture, type CaptureStatus } from "@/core/capture"
 import {
@@ -22,6 +29,7 @@ export interface CaptureControls {
 
 export interface Conversation {
   scenario: ScenarioId | null
+  sessionId: number | null
   turns: Turn[]
   phase: ConversationPhase
   pendingTranscript: string | null
@@ -42,6 +50,7 @@ export function useConversation(
   player: TtsPlayer
 ): Conversation {
   const [scenario, setScenario] = useState<ScenarioId | null>(null)
+  const [sessionId, setSessionId] = useState<number | null>(null)
   const [turns, setTurns] = useState<Turn[]>([])
   const [phase, setPhase] = useState<ConversationPhase>(null)
   const [pendingTranscript, setPendingTranscript] = useState<string | null>(
@@ -56,14 +65,25 @@ export function useConversation(
   // Latest values for callbacks that outlive a render (capture -> transcribe -> chat)
   const turnsRef = useRef(turns)
   const scenarioRef = useRef(scenario)
+  const sessionIdRef = useRef(sessionId)
   const settingsRef = useRef(settings)
   const playerRef = useRef(player)
   useEffect(() => {
     turnsRef.current = turns
     scenarioRef.current = scenario
+    sessionIdRef.current = sessionId
     settingsRef.current = settings
     playerRef.current = player
   })
+
+  // Persistence is best-effort: a DB hiccup must never interrupt practice
+  const persistTurn = (turn: Turn) => {
+    const id = sessionIdRef.current
+    if (id != null)
+      void saveTurn(id, turn).catch((err) =>
+        console.warn("Failed to persist turn:", err)
+      )
+  }
 
   const speak = (text: string) => {
     const { voiceEnabled, voice } = settingsRef.current
@@ -97,10 +117,13 @@ export function useConversation(
           onResponse: speak,
         }
       )
-      setTurns((prev) => [
-        ...prev,
-        { transcript, response: result.response, coaching: result.coaching },
-      ])
+      const turn = {
+        transcript,
+        response: result.response,
+        coaching: result.coaching,
+      }
+      setTurns((prev) => [...prev, turn])
+      persistTurn(turn)
       setSuggestions(result.suggestions?.length ? result.suggestions : null)
     } catch (err) {
       fail(err)
@@ -122,6 +145,14 @@ export function useConversation(
     setError(null)
     setIsStarting(true)
     setStreamingText("")
+    const newSessionId = await createSession(id, settings.difficulty).catch(
+      (err) => {
+        console.warn("Failed to create session:", err)
+        return null
+      }
+    )
+    setSessionId(newSessionId)
+    sessionIdRef.current = newSessionId
     try {
       const result = await streamChat(
         {
@@ -132,7 +163,9 @@ export function useConversation(
         },
         { onDelta: setStreamingText, onResponse: speak }
       )
-      setTurns([{ transcript: "", response: result.response, coaching: "" }])
+      const opening = { transcript: "", response: result.response, coaching: "" }
+      setTurns([opening])
+      persistTurn(opening)
       setSuggestions(result.suggestions?.length ? result.suggestions : null)
     } catch (err) {
       fail(err)
@@ -160,6 +193,13 @@ export function useConversation(
   const reset = () => {
     cancel()
     player.stop()
+    const id = sessionIdRef.current
+    if (id != null)
+      void endSession(id).catch((err) =>
+        console.warn("Failed to end session:", err)
+      )
+    setSessionId(null)
+    sessionIdRef.current = null
     setScenario(null)
     setTurns([])
     setPhase(null)
@@ -173,6 +213,7 @@ export function useConversation(
 
   return {
     scenario,
+    sessionId,
     turns,
     phase,
     pendingTranscript,

@@ -9,6 +9,7 @@ export {
   type Difficulty,
   type ReviewData,
   type ScenarioId,
+  type SessionSummary,
 } from "./contract"
 export {
   DIFFICULTIES,

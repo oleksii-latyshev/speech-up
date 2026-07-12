@@ -51,3 +51,18 @@ export interface ReviewData {
   vocabulary: string[]
   praise: string
 }
+
+export interface Turn {
+  transcript: string // empty for the AI's opening turn
+  response: string
+  coaching: string
+}
+
+export interface SessionSummary {
+  id: number
+  scenario: ScenarioId
+  difficulty: Difficulty
+  startedAt: number
+  endedAt: number | null
+  turnCount: number
+}

@@ -1,6 +1,9 @@
 .env
 ollama_data/
 
+# SQLite database — the user's practice history, never commit
+data/
+
 # local_ai runtime artifacts — auto-downloaded on first start, never commit
 local_ai/.venv/
 local_ai/models/

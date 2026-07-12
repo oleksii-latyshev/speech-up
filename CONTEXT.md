@@ -40,7 +40,7 @@ Conversation alone is practice, but confidence grows from feedback and from over
 
 ### Phase 4 — Progress & history
 
-9. **SQLite + Drizzle ORM** — persist sessions, mistakes, and vocabulary across restarts.
+9. **SQLite + Drizzle ORM** ✅ — persist sessions, mistakes, and vocabulary across restarts.
 10. **Progress screen** — stats: session count, speaking time, average utterance length, recurring error tags. Visible progress = motivation.
 11. **Warm-up on past mistakes** — at session start the AI prompts the user to use 2–3 phrases from previous debriefs. Simplest form of spaced repetition.
 
@@ -71,6 +71,7 @@ Most AI speaking tools interrupt users mid-pause. Real thinking requires silence
 | Frontend | React 19 + Vite 8 + TypeScript + Tailwind CSS v4 + shadcn/ui |
 | Backend | Elysia.js on Bun, port 3001, prefix `/api` |
 | Dev proxy | Vite → `http://localhost:3001` (explicit object form required for Vite 8 POST bug) |
+| Persistence | SQLite (`bun:sqlite`) + Drizzle ORM, DB file `data/speech-up.db` (gitignored, `DB_PATH` overrides) |
 | STT | `fedirz/faster-whisper-server` — model: `deepdml/faster-whisper-large-v3-turbo-ct2` |
 | LLM | Ollama — model: `qwen3:8b` (best Russian+English bilingual 8B model) |
 | TTS | `ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.2` |
@@ -149,6 +150,15 @@ User speaks
 - `playTTS` splits text into sentences and pipelines them: the next sentence is synthesized while the current one plays (generation counter `playSeqRef` invalidates the queue on skip/reset)
 - User transcript renders immediately after STT (`pendingTranscript`); status label shows Transcribing… / Thinking… (`phase` state)
 
+### Persistence (Phase 4, item 9)
+- **SQLite via `bun:sqlite` + Drizzle ORM** (`server/db/`): schema in `schema.ts` (tables: `sessions`, `turns`, `reviews`, `corrections`, `vocabulary` — the last three cascade-delete with their session), repository functions in `sessions.ts`, connection + WAL + `runMigrations()` in `index.ts`
+- Migrations: SQL files committed in `server/db/migrations/`, applied automatically on server start; after a schema change run `bunx drizzle-kit generate` (config in `drizzle.config.ts`)
+- DB file: `data/speech-up.db` (gitignored); `DB_PATH` env var overrides
+- **Endpoints** (`server/routes/sessions.ts`): `POST /api/sessions` (create → `{id}`), `POST /api/sessions/:id/turns`, `POST /api/sessions/:id/end` (sets `endedAt` only if not already set), `GET /api/sessions` (list of `SessionSummary` with turn counts — foundation for the progress screen)
+- `/api/debrief` accepts optional `sessionId` and persists the review + corrections + vocabulary (replacing any previous review for that session) and ends the session
+- **Client wiring** (`useConversation`): `startScenario` creates the session, every completed turn (including the AI opener) is saved, "New chat" ends the session; `App` passes `conversation.sessionId` into the debrief. All persistence is best-effort — a failed write logs a `console.warn` and never interrupts practice
+- `Turn` and `SessionSummary` types moved into the shared contract (`src/core/session/contract.ts`)
+
 ### Coach features (Phase 2)
 - **Difficulty levels** (`easy`/`medium`/`hard`, segmented control on the picker, persisted to localStorage): difficulty adjusts the AI's speech style in the system prompt; on `easy` the `/api/chat` JSON gains a `suggestions` array (2 example replies) rendered as chips under the last AI turn — clicking a chip plays it via TTS
 - **`/api/hint`** (`server/routes/hint.ts`) — "I'm stuck" button (shown on easy+medium): sends history + scenario, returns `{suggestions}` rendered in the same chips UI
@@ -158,7 +168,7 @@ User speaks
 
 ## What Still Needs to Be Built ❌
 
-See the **Roadmap** section above — Phases 1–3 are done; Phase 4 (SQLite persistence, progress screen, warm-up on past mistakes) is the current priority.
+See the **Roadmap** section above — Phases 1–3 and the Phase 4 persistence layer (item 9) are done; next up in Phase 4: the progress screen (item 10) and warm-up on past mistakes (item 11), both of which can now read from the DB.
 
 ---
 

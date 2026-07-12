@@ -42,7 +42,7 @@ export default function App() {
     if (!scenario) return
     player.stop()
     conversation.capture.stopAuto()
-    review.show(scenario, turns)
+    review.show(scenario, turns, conversation.sessionId)
   }
 
   const resetSession = () => {

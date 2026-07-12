@@ -1,14 +1,13 @@
 import { Elysia, t } from "elysia"
-import { isScenarioId, type ReviewData } from "../../src/core/session/contract"
+import {
+  isScenarioId,
+  type ReviewData,
+  type Turn,
+} from "../../src/core/session/contract"
+import { saveReview } from "../db"
 import { extractJsonObject } from "../helpers/modelJson"
 import { DEBRIEF_SYSTEM, personaFor } from "../helpers/prompts"
 import { chatCompletion } from "../ollama"
-
-interface Turn {
-  transcript: string
-  response: string
-  coaching: string
-}
 
 const formatConversation = (turns: Turn[]) =>
   turns
@@ -37,12 +36,19 @@ export const debriefRoute = new Elysia().post(
     ])
 
     const parsed = extractJsonObject<ReviewData>(raw)
-    return {
+    const review: ReviewData = {
       overview: parsed.overview ?? "",
       corrections: Array.isArray(parsed.corrections) ? parsed.corrections : [],
       vocabulary: Array.isArray(parsed.vocabulary) ? parsed.vocabulary : [],
       praise: parsed.praise ?? "",
     }
+
+    if (body.sessionId != null) {
+      await saveReview(body.sessionId, review).catch((err) =>
+        console.warn(`Failed to persist review for session ${body.sessionId}:`, err)
+      )
+    }
+    return review
   },
   {
     body: t.Object({
@@ -54,6 +60,7 @@ export const debriefRoute = new Elysia().post(
         })
       ),
       scenario: t.Optional(t.String()),
+      sessionId: t.Optional(t.Number()),
     }),
   }
 )

@@ -1,10 +1,6 @@
-import type { ChatMessage } from "./contract"
+import type { ChatMessage, Turn } from "./contract"
 
-export interface Turn {
-  transcript: string // empty for the AI's opening turn
-  response: string
-  coaching: string
-}
+export type { Turn }
 
 export function historyFromTurns(turns: Turn[]): ChatMessage[] {
   return turns.flatMap<ChatMessage>((t) => [

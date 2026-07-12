@@ -2,8 +2,10 @@ import type {
   ChatEvent,
   ChatMessage,
   ChatRequest,
+  Difficulty,
   ReviewData,
   ScenarioId,
+  SessionSummary,
   Turn,
 } from "@/core/session"
 
@@ -100,8 +102,31 @@ export async function requestHints(
 
 export async function requestDebrief(
   scenario: ScenarioId,
-  turns: Turn[]
+  turns: Turn[],
+  sessionId?: number
 ): Promise<ReviewData> {
-  const res = await postJson("/api/debrief", { scenario, turns })
+  const res = await postJson("/api/debrief", { scenario, turns, sessionId })
   return (await res.json()) as ReviewData
+}
+
+export async function createSession(
+  scenario: ScenarioId,
+  difficulty: Difficulty
+): Promise<number> {
+  const res = await postJson("/api/sessions", { scenario, difficulty })
+  return ((await res.json()) as { id: number }).id
+}
+
+export async function saveTurn(sessionId: number, turn: Turn): Promise<void> {
+  await postJson(`/api/sessions/${sessionId}/turns`, turn)
+}
+
+export async function endSession(sessionId: number): Promise<void> {
+  await postJson(`/api/sessions/${sessionId}/end`, {})
+}
+
+export async function listSessions(): Promise<SessionSummary[]> {
+  const res = await fetch("/api/sessions")
+  if (!res.ok) throw new Error(`/api/sessions failed with ${res.status}`)
+  return (await res.json()) as SessionSummary[]
 }

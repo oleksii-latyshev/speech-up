@@ -1,12 +1,15 @@
 import { Elysia } from "elysia"
 import { config } from "./config"
+import { runMigrations } from "./db"
 import { startNativeServices } from "./native"
 import { transcribeRoute } from "./routes/transcribe"
 import { chatRoute } from "./routes/chat"
 import { ttsRoute } from "./routes/tts"
 import { hintRoute } from "./routes/hint"
 import { debriefRoute } from "./routes/debrief"
+import { sessionsRoute } from "./routes/sessions"
 
+runMigrations()
 await startNativeServices()
 
 new Elysia({ prefix: "/api" })
@@ -16,6 +19,7 @@ new Elysia({ prefix: "/api" })
   .use(ttsRoute)
   .use(hintRoute)
   .use(debriefRoute)
+  .use(sessionsRoute)
   .listen(config.port)
 
 console.log(

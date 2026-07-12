@@ -9,6 +9,9 @@ const native = aiMode === "native"
 export const config = {
   port: Number(process.env.PORT ?? 3001),
   aiMode,
+  db: {
+    path: process.env.DB_PATH ?? "data/speech-up.db",
+  },
   ollama: {
     url: process.env.OLLAMA_URL ?? "http://localhost:11434",
     model: process.env.OLLAMA_MODEL ?? "qwen3:8b",
