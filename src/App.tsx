@@ -1,5 +1,6 @@
 import { useState } from "react"
 import {
+  ChartNoAxesColumn,
   ClipboardCheck,
   Mic,
   RotateCcw,
@@ -9,6 +10,7 @@ import { useTtsPlayer } from "@/core/audio"
 import { scenarioTitle } from "@/core/session"
 import { useSettings } from "@/core/settings"
 import { ChatScreen, useConversation, type CaptureMode } from "@/features/chat"
+import { ProgressScreen } from "@/features/progress"
 import { SessionReview, useSessionReview } from "@/features/review"
 import { ScenarioPicker } from "@/features/scenario"
 import { SettingsPanel } from "@/features/settings"
@@ -32,6 +34,7 @@ export default function App() {
 
   const [mode, setMode] = useState<CaptureMode>("auto")
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [progressOpen, setProgressOpen] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
 
   const { scenario, turns, capture, isStarting } = conversation
@@ -113,6 +116,13 @@ export default function App() {
             ))}
           </div>
           <button
+            onClick={() => setProgressOpen(true)}
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+            aria-label="Progress"
+          >
+            <ChartNoAxesColumn className="size-4" />
+          </button>
+          <button
             onClick={() => setSettingsOpen(true)}
             className="rounded-md p-1.5 text-muted-foreground transition-colors hover:text-foreground"
             aria-label="Settings"
@@ -166,6 +176,8 @@ export default function App() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {progressOpen && <ProgressScreen onClose={() => setProgressOpen(false)} />}
 
       {settingsOpen && (
         <SettingsPanel

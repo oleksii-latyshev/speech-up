@@ -1,5 +1,9 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
-import type { Difficulty, ScenarioId } from "../../src/core/session/contract"
+import type {
+  Difficulty,
+  ErrorTag,
+  ScenarioId,
+} from "../../src/core/session/contract"
 
 export const sessions = sqliteTable("sessions", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -38,6 +42,7 @@ export const corrections = sqliteTable("corrections", {
     .references(() => sessions.id, { onDelete: "cascade" }),
   you: text("you").notNull(),
   better: text("better").notNull(),
+  tag: text("tag").$type<ErrorTag>(),
 })
 
 export const vocabulary = sqliteTable("vocabulary", {

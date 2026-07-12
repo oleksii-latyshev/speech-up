@@ -71,12 +71,13 @@ Write a session review IN RUSSIAN (except the English phrases themselves). Addre
 Respond ONLY with valid JSON, no markdown fences, no extra text:
 {
   "overview": "<2-3 предложения по-русски: общее впечатление, что стоит тренировать>",
-  "corrections": [{"you": "<his phrase, English>", "better": "<natural native phrasing, English>"}],
+  "corrections": [{"you": "<his phrase, English>", "better": "<natural native phrasing, English>", "tag": "<error category>"}],
   "vocabulary": ["<useful English word or phrase> — <короткое пояснение по-русски>"],
   "praise": "<1 предложение по-русски: что получилось хорошо>"
 }
 
 Rules:
 - "corrections": the 3-5 most useful fixes from THIS conversation (skip transcript punctuation/casing issues). If he spoke flawlessly, return fewer or none.
+- "tag": the error category, exactly one of: articles, tenses, prepositions, word-order, vocabulary, phrasing, agreement, other. Pick the closest match; use "other" only when nothing fits.
 - "vocabulary": 3-6 words or expressions worth remembering for this scenario.
 - Do not invent phrases he never said.`

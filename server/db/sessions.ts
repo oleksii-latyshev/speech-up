@@ -1,4 +1,4 @@
-import { and, count, desc, eq, isNull } from "drizzle-orm"
+import { and, count, desc, eq, isNotNull, isNull } from "drizzle-orm"
 import type {
   Difficulty,
   ReviewData,
@@ -6,6 +6,7 @@ import type {
   SessionSummary,
   Turn,
 } from "../../src/core/session/contract"
+import type { ProgressRows } from "../helpers/progress"
 import { db } from "./index"
 import { corrections, reviews, sessions, turns, vocabulary } from "./schema"
 
@@ -57,6 +58,34 @@ export async function saveReview(
     }
   })
   await endSession(sessionId)
+}
+
+export async function loadProgressRows(): Promise<ProgressRows> {
+  const [sessionRows, turnRows, tagRows] = await Promise.all([
+    db
+      .select({
+        id: sessions.id,
+        startedAt: sessions.startedAt,
+        endedAt: sessions.endedAt,
+      })
+      .from(sessions),
+    db
+      .select({
+        sessionId: turns.sessionId,
+        transcript: turns.transcript,
+        createdAt: turns.createdAt,
+      })
+      .from(turns),
+    db
+      .select({ tag: corrections.tag })
+      .from(corrections)
+      .where(isNotNull(corrections.tag)),
+  ])
+  return {
+    sessions: sessionRows,
+    turns: turnRows,
+    tags: tagRows.flatMap((r) => (r.tag ? [r.tag] : [])),
+  }
 }
 
 export async function listSessions(): Promise<SessionSummary[]> {

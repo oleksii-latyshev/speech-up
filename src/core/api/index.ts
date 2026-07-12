@@ -1,6 +1,7 @@
 export {
   createSession,
   endSession,
+  fetchProgress,
   listSessions,
   requestDebrief,
   requestHints,

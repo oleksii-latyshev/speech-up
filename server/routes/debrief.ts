@@ -1,6 +1,8 @@
 import { Elysia, t } from "elysia"
 import {
+  isErrorTag,
   isScenarioId,
+  type Correction,
   type ReviewData,
   type Turn,
 } from "../../src/core/session/contract"
@@ -8,6 +10,12 @@ import { saveReview } from "../db"
 import { extractJsonObject } from "../helpers/modelJson"
 import { DEBRIEF_SYSTEM, personaFor } from "../helpers/prompts"
 import { chatCompletion } from "../ollama"
+
+const sanitizeCorrection = (c: Correction): Correction => ({
+  you: c.you,
+  better: c.better,
+  ...(typeof c.tag === "string" && isErrorTag(c.tag) ? { tag: c.tag } : {}),
+})
 
 const formatConversation = (turns: Turn[]) =>
   turns
@@ -38,7 +46,9 @@ export const debriefRoute = new Elysia().post(
     const parsed = extractJsonObject<ReviewData>(raw)
     const review: ReviewData = {
       overview: parsed.overview ?? "",
-      corrections: Array.isArray(parsed.corrections) ? parsed.corrections : [],
+      corrections: Array.isArray(parsed.corrections)
+        ? parsed.corrections.map(sanitizeCorrection)
+        : [],
       vocabulary: Array.isArray(parsed.vocabulary) ? parsed.vocabulary : [],
       praise: parsed.praise ?? "",
     }

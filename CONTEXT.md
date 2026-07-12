@@ -41,7 +41,7 @@ Conversation alone is practice, but confidence grows from feedback and from over
 ### Phase 4 — Progress & history
 
 9. **SQLite + Drizzle ORM** ✅ — persist sessions, mistakes, and vocabulary across restarts.
-10. **Progress screen** — stats: session count, speaking time, average utterance length, recurring error tags. Visible progress = motivation.
+10. **Progress screen** ✅ — stats: session count, speaking time, average utterance length, recurring error tags. Visible progress = motivation.
 11. **Warm-up on past mistakes** — at session start the AI prompts the user to use 2–3 phrases from previous debriefs. Simplest form of spaced repetition.
 
 ### Phase 5 — Later
@@ -159,6 +159,12 @@ User speaks
 - **Client wiring** (`useConversation`): `startScenario` creates the session, every completed turn (including the AI opener) is saved, "New chat" ends the session; `App` passes `conversation.sessionId` into the debrief. All persistence is best-effort — a failed write logs a `console.warn` and never interrupts practice
 - `Turn` and `SessionSummary` types moved into the shared contract (`src/core/session/contract.ts`)
 
+### Progress screen (Phase 4, item 10)
+- **`GET /api/progress`** (`server/routes/progress.ts`) — all stats computed by the pure helper `server/helpers/progress.ts` (unit-tested): session count, practice time (endedAt − startedAt, falling back to the last turn), words spoken, average utterance length, day streak (today or yesterday keeps it alive), a 14-local-day activity grid, and ranked error-tag counts
+- **Error tags**: the debrief now asks the model to tag each correction with one of `ERROR_TAG_IDS` (contract): articles, tenses, prepositions, word-order, vocabulary, phrasing, agreement, other; invalid tags are dropped, stored in the new nullable `corrections.tag` column (migration `0001_error-tag.sql`)
+- **UI** (`src/features/progress`): full-screen overlay opened from a header button (always visible) — 4 stat tiles, a 14-day bar chart (shadcn `chart.tsx` + recharts, single primary hue, tooltip with minutes · sessions), "Recurring mistakes" ranked meter list, "Recent sessions" list (scenario icon, date, turns, duration, difficulty), plus skeleton loading, error-with-retry, and an empty state
+- Old corrections rows (before tagging) simply have `tag = NULL` and are excluded from the tag stats
+
 ### Coach features (Phase 2)
 - **Difficulty levels** (`easy`/`medium`/`hard`, segmented control on the picker, persisted to localStorage): difficulty adjusts the AI's speech style in the system prompt; on `easy` the `/api/chat` JSON gains a `suggestions` array (2 example replies) rendered as chips under the last AI turn — clicking a chip plays it via TTS
 - **`/api/hint`** (`server/routes/hint.ts`) — "I'm stuck" button (shown on easy+medium): sends history + scenario, returns `{suggestions}` rendered in the same chips UI
@@ -168,7 +174,7 @@ User speaks
 
 ## What Still Needs to Be Built ❌
 
-See the **Roadmap** section above — Phases 1–3 and the Phase 4 persistence layer (item 9) are done; next up in Phase 4: the progress screen (item 10) and warm-up on past mistakes (item 11), both of which can now read from the DB.
+See the **Roadmap** section above — Phases 1–3 and the Phase 4 persistence layer + progress screen (items 9–10) are done; next up in Phase 4: warm-up on past mistakes (item 11), which can read past corrections/vocabulary from the DB.
 
 ---
 

@@ -3,6 +3,7 @@ import type {
   ChatMessage,
   ChatRequest,
   Difficulty,
+  ProgressStats,
   ReviewData,
   ScenarioId,
   SessionSummary,
@@ -129,4 +130,10 @@ export async function listSessions(): Promise<SessionSummary[]> {
   const res = await fetch("/api/sessions")
   if (!res.ok) throw new Error(`/api/sessions failed with ${res.status}`)
   return (await res.json()) as SessionSummary[]
+}
+
+export async function fetchProgress(): Promise<ProgressStats> {
+  const res = await fetch("/api/progress")
+  if (!res.ok) throw new Error(`/api/progress failed with ${res.status}`)
+  return (await res.json()) as ProgressStats
 }

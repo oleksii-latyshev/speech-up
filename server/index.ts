@@ -8,6 +8,7 @@ import { ttsRoute } from "./routes/tts"
 import { hintRoute } from "./routes/hint"
 import { debriefRoute } from "./routes/debrief"
 import { sessionsRoute } from "./routes/sessions"
+import { progressRoute } from "./routes/progress"
 
 runMigrations()
 await startNativeServices()
@@ -20,6 +21,7 @@ new Elysia({ prefix: "/api" })
   .use(hintRoute)
   .use(debriefRoute)
   .use(sessionsRoute)
+  .use(progressRoute)
   .listen(config.port)
 
 console.log(

@@ -45,9 +45,31 @@ export interface ChatRequest {
   difficulty: Difficulty
 }
 
+export const ERROR_TAG_IDS = [
+  "articles",
+  "tenses",
+  "prepositions",
+  "word-order",
+  "vocabulary",
+  "phrasing",
+  "agreement",
+  "other",
+] as const
+
+export type ErrorTag = (typeof ERROR_TAG_IDS)[number]
+
+export const isErrorTag = (v: string): v is ErrorTag =>
+  (ERROR_TAG_IDS as readonly string[]).includes(v)
+
+export interface Correction {
+  you: string
+  better: string
+  tag?: ErrorTag
+}
+
 export interface ReviewData {
   overview: string
-  corrections: { you: string; better: string }[]
+  corrections: Correction[]
   vocabulary: string[]
   praise: string
 }
@@ -65,4 +87,26 @@ export interface SessionSummary {
   startedAt: number
   endedAt: number | null
   turnCount: number
+}
+
+export interface DayActivity {
+  date: string // local YYYY-MM-DD
+  sessions: number
+  minutes: number
+}
+
+export interface ErrorTagCount {
+  tag: ErrorTag
+  count: number
+}
+
+export interface ProgressStats {
+  sessionCount: number
+  practiceMs: number
+  wordCount: number
+  utteranceCount: number
+  avgUtteranceWords: number
+  streakDays: number
+  days: DayActivity[]
+  errorTags: ErrorTagCount[]
 }
