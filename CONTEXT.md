@@ -98,7 +98,9 @@ User speaks
 - Ollama init container pulls `qwen3:8b` automatically on first run
 - `WHISPER__MODEL_TTL=60` — whisper unloads after 60 s of idle to free RAM
 - Docker Desktop must be set to ≥ 12 GB RAM (M1 Pro: qwen3:8b ~5 GB + whisper ~3 GB)
-- **Perf note (not yet done): Ollama inside Docker on macOS is CPU-only** — Docker Desktop can't pass the Apple GPU through. Running Ollama **natively on the host** (`brew install ollama`) uses Metal on the M1 Pro and generates typically 3–5× faster. Same port 11434, so the only changes are: stop the `ollama`/`ollama-init` compose services and point `OLLAMA_URL` at the host ollama (already the default `http://localhost:11434`). Model data would need one `ollama pull qwen3:8b` on the host.
+- **Two AI-stack modes** (`AI_MODE` in `.env`, default `docker`):
+  - `docker` — the compose services above; portable fallback / demo mode. CPU-only on macOS (Docker Desktop can't pass the Apple GPU through; measured ~8–12 tok/s for qwen3:8b).
+  - `native` (macOS) — host Ollama with Metal (~23 tok/s measured on M1 Pro) + `local_ai/server.py`: FastAPI on port 8000 with mlx-whisper (Metal) for STT and kokoro-onnx for TTS, same OpenAI-compatible endpoints as the docker services. `server/native.ts` auto-spawns `ollama serve` (with `OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=q8_0`) and `local_ai` on `bun dev:server` start — skipping whatever is already listening — and kills them on exit, so nothing stays in the background. Setup: `brew install ollama`, `ollama pull qwen3:8b`, `python3 -m venv local_ai/.venv && local_ai/.venv/bin/pip install -r local_ai/requirements.txt`. Models auto-download on first start (mlx whisper ~1.6 GB from HF, kokoro ~330 MB from GitHub). webm decoding is done with PyAV (bundled ffmpeg) — no brew ffmpeg needed. Never run host Ollama and the docker `ollama` service simultaneously (port 11434).
 
 ### Voice Capture (`src/hooks/useVoiceCapture.ts`)
 - **Auto mode** — RMS amplitude loop; fires after 2.5 s of silence post-speech

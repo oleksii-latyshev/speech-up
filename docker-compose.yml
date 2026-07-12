@@ -1,3 +1,7 @@
+# Fallback / demo AI stack (AI_MODE=docker, the default) — works on any machine.
+# On macOS the faster path is AI_MODE=native (host Ollama with Metal + local_ai/);
+# see .env.example. Don't run the ollama service while host Ollama is running —
+# both want port 11434.
 services:
   ollama:
     image: ollama/ollama

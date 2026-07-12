@@ -1,0 +1,7 @@
+mlx-whisper
+kokoro-onnx
+fastapi
+uvicorn
+python-multipart
+soundfile
+av

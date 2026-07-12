@@ -1,10 +1,13 @@
 import { Elysia } from "elysia"
 import { config } from "./config"
+import { startNativeServices } from "./native"
 import { transcribeRoute } from "./routes/transcribe"
 import { chatRoute } from "./routes/chat"
 import { ttsRoute } from "./routes/tts"
 import { hintRoute } from "./routes/hint"
 import { debriefRoute } from "./routes/debrief"
+
+await startNativeServices()
 
 const app = new Elysia({ prefix: "/api" })
   .get("/health", () => ({ status: "ok", timestamp: new Date().toISOString() }))
@@ -15,4 +18,4 @@ const app = new Elysia({ prefix: "/api" })
   .use(debriefRoute)
   .listen(config.port)
 
-console.log(`Server running at http://localhost:${config.port}`)
+console.log(`Server running at http://localhost:${config.port} (AI_MODE=${config.aiMode})`)
