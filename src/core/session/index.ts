@@ -17,6 +17,7 @@ export {
   type ReviewData,
   type ScenarioId,
   type SessionSummary,
+  type WarmupPhrase,
 } from "./contract"
 export {
   DIFFICULTIES,

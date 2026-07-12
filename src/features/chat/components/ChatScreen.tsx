@@ -10,6 +10,7 @@ import {
 } from "./MessageBubbles"
 import { MicDock, type CaptureMode } from "./MicDock"
 import { SuggestionChips } from "./SuggestionChips"
+import { WarmupCard } from "./WarmupCard"
 
 interface ChatScreenProps {
   conversation: Conversation
@@ -34,6 +35,8 @@ export function ChatScreen({
     isStarting,
     error,
     capture,
+    warmup,
+    warmupUsed,
   } = conversation
 
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -45,6 +48,14 @@ export function ChatScreen({
     <>
       <div className="flex-1 overflow-y-auto px-4 py-5">
         <div className="mx-auto w-full max-w-2xl space-y-4">
+          {warmup && (
+            <WarmupCard
+              phrases={warmup}
+              used={warmupUsed}
+              onPlay={(text) => void player.play(text, settings.voice)}
+            />
+          )}
+
           {turns.map((turn, i) => (
             <div key={i} className="space-y-2.5">
               {turn.transcript && <UserBubble text={turn.transcript} />}

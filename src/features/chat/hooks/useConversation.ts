@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import {
   createSession,
   endSession,
+  fetchWarmup,
   requestHints,
   saveTurn,
   streamChat,
@@ -14,8 +15,10 @@ import {
   historyFromTurns,
   type ScenarioId,
   type Turn,
+  type WarmupPhrase,
 } from "@/core/session"
 import type { Settings } from "@/core/settings"
+import { phraseUsedIn } from "../helpers/warmupMatch"
 
 export type ConversationPhase = "transcribing" | "thinking" | null
 
@@ -39,6 +42,8 @@ export interface Conversation {
   isStarting: boolean
   error: string | null
   hasSpoken: boolean
+  warmup: WarmupPhrase[] | null
+  warmupUsed: boolean[]
   capture: CaptureControls
   startScenario: (id: ScenarioId) => Promise<void>
   requestHint: () => Promise<void>
@@ -61,6 +66,8 @@ export function useConversation(
   const [hintLoading, setHintLoading] = useState(false)
   const [isStarting, setIsStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [warmup, setWarmup] = useState<WarmupPhrase[] | null>(null)
+  const [warmupUsed, setWarmupUsed] = useState<boolean[]>([])
 
   // Latest values for callbacks that outlive a render (capture -> transcribe -> chat)
   const turnsRef = useRef(turns)
@@ -68,12 +75,14 @@ export function useConversation(
   const sessionIdRef = useRef(sessionId)
   const settingsRef = useRef(settings)
   const playerRef = useRef(player)
+  const warmupRef = useRef(warmup)
   useEffect(() => {
     turnsRef.current = turns
     scenarioRef.current = scenario
     sessionIdRef.current = sessionId
     settingsRef.current = settings
     playerRef.current = player
+    warmupRef.current = warmup
   })
 
   // Persistence is best-effort: a DB hiccup must never interrupt practice
@@ -93,6 +102,16 @@ export function useConversation(
   const fail = (err: unknown) =>
     setError(err instanceof Error ? err.message : "Unknown error")
 
+  const warmupTexts = () => warmupRef.current?.map((p) => p.text)
+
+  const markWarmupUsed = (transcript: string) => {
+    const phrases = warmupRef.current
+    if (!phrases) return
+    setWarmupUsed((prev) =>
+      prev.map((used, i) => used || phraseUsedIn(phrases[i].text, transcript))
+    )
+  }
+
   const handleAudioReady = useCallback(async (blob: Blob) => {
     const activeScenario = scenarioRef.current
     if (!activeScenario) return
@@ -103,6 +122,7 @@ export function useConversation(
       setPhase("transcribing")
       const transcript = await transcribe(blob)
       setPendingTranscript(transcript)
+      markWarmupUsed(transcript)
       setPhase("thinking")
       setStreamingText("")
       const result = await streamChat(
@@ -111,6 +131,7 @@ export function useConversation(
           history: historyFromTurns(turnsRef.current),
           scenario: activeScenario,
           difficulty: settingsRef.current.difficulty,
+          warmup: warmupTexts(),
         },
         {
           onDelta: setStreamingText,
@@ -145,14 +166,21 @@ export function useConversation(
     setError(null)
     setIsStarting(true)
     setStreamingText("")
-    const newSessionId = await createSession(id, settings.difficulty).catch(
-      (err) => {
+    const [newSessionId, warmupPhrases] = await Promise.all([
+      createSession(id, settings.difficulty).catch((err) => {
         console.warn("Failed to create session:", err)
         return null
-      }
-    )
+      }),
+      fetchWarmup().catch((err) => {
+        console.warn("Failed to fetch warm-up phrases:", err)
+        return [] as WarmupPhrase[]
+      }),
+    ])
     setSessionId(newSessionId)
     sessionIdRef.current = newSessionId
+    setWarmup(warmupPhrases.length ? warmupPhrases : null)
+    warmupRef.current = warmupPhrases.length ? warmupPhrases : null
+    setWarmupUsed(warmupPhrases.map(() => false))
     try {
       const result = await streamChat(
         {
@@ -160,6 +188,7 @@ export function useConversation(
           scenario: id,
           start: true,
           difficulty: settings.difficulty,
+          warmup: warmupTexts(),
         },
         { onDelta: setStreamingText, onResponse: speak }
       )
@@ -209,6 +238,9 @@ export function useConversation(
     setHintLoading(false)
     setIsStarting(false)
     setError(null)
+    setWarmup(null)
+    warmupRef.current = null
+    setWarmupUsed([])
   }
 
   return {
@@ -223,6 +255,8 @@ export function useConversation(
     isStarting,
     error,
     hasSpoken: hasUserSpoken(turns),
+    warmup,
+    warmupUsed,
     capture: { status, startAuto, stopAuto, pttStart, pttStop },
     startScenario,
     requestHint,

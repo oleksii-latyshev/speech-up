@@ -8,6 +8,7 @@ import type {
   ScenarioId,
   SessionSummary,
   Turn,
+  WarmupPhrase,
 } from "@/core/session"
 
 async function postJson(path: string, body: unknown): Promise<Response> {
@@ -136,4 +137,10 @@ export async function fetchProgress(): Promise<ProgressStats> {
   const res = await fetch("/api/progress")
   if (!res.ok) throw new Error(`/api/progress failed with ${res.status}`)
   return (await res.json()) as ProgressStats
+}
+
+export async function fetchWarmup(): Promise<WarmupPhrase[]> {
+  const res = await fetch("/api/warmup")
+  if (!res.ok) throw new Error(`/api/warmup failed with ${res.status}`)
+  return ((await res.json()) as { phrases: WarmupPhrase[] }).phrases
 }

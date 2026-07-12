@@ -35,9 +35,17 @@ For each of his messages (a speech transcript, so ignore punctuation/casing issu
 
 const SUGGESTIONS_RULE = `The third section: exactly 2 different short example replies Oleksii could say next in response to you (first person, spoken style, max 12 simple words each), one per line.`
 
+const warmupRule = (phrases: string[]) =>
+  `Warm-up goal: Oleksii is trying to naturally reuse these phrases from his past session reviews: ${phrases
+    .map((p) => `"${p}"`)
+    .join(
+      ", "
+    )}. Never say these phrases yourself and never mention the warm-up in your English reply. When one of them appears in his message (even in a slightly different form), start the Russian coaching note by briefly praising that he used it.`
+
 export function buildSystemPrompt(
   scenario?: ScenarioId,
-  difficulty: Difficulty = "medium"
+  difficulty: Difficulty = "medium",
+  warmup: string[] = []
 ): string {
   const withSuggestions = difficulty === "easy"
   const format = withSuggestions
@@ -48,6 +56,7 @@ export function buildSystemPrompt(
     personaFor(scenario),
     DIFFICULTY_STYLE[difficulty],
     COACH_RULES,
+    warmup.length ? warmupRule(warmup) : "",
     withSuggestions ? SUGGESTIONS_RULE : "",
     `Answer in EXACTLY this plain-text format — sections separated by a line containing only "---". No JSON, no markdown, no section titles:\n${format}`,
   ]

@@ -9,6 +9,7 @@ import { hintRoute } from "./routes/hint"
 import { debriefRoute } from "./routes/debrief"
 import { sessionsRoute } from "./routes/sessions"
 import { progressRoute } from "./routes/progress"
+import { warmupRoute } from "./routes/warmup"
 
 runMigrations()
 await startNativeServices()
@@ -22,6 +23,7 @@ new Elysia({ prefix: "/api" })
   .use(debriefRoute)
   .use(sessionsRoute)
   .use(progressRoute)
+  .use(warmupRoute)
   .listen(config.port)
 
 console.log(

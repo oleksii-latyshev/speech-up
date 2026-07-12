@@ -43,6 +43,13 @@ export interface ChatRequest {
   scenario: ScenarioId
   start?: boolean
   difficulty: Difficulty
+  warmup?: string[]
+}
+
+export interface WarmupPhrase {
+  text: string
+  hint: string // the original phrase for corrections, the explanation for vocabulary
+  source: "correction" | "vocabulary"
 }
 
 export const ERROR_TAG_IDS = [

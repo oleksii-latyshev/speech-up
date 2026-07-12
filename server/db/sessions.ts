@@ -7,6 +7,7 @@ import type {
   Turn,
 } from "../../src/core/session/contract"
 import type { ProgressRows } from "../helpers/progress"
+import type { WarmupRows } from "../helpers/warmup"
 import { db } from "./index"
 import { corrections, reviews, sessions, turns, vocabulary } from "./schema"
 
@@ -85,6 +86,29 @@ export async function loadProgressRows(): Promise<ProgressRows> {
     sessions: sessionRows,
     turns: turnRows,
     tags: tagRows.flatMap((r) => (r.tag ? [r.tag] : [])),
+  }
+}
+
+const WARMUP_POOL_LIMIT = 30
+
+export async function loadWarmupRows(): Promise<WarmupRows> {
+  const [correctionRows, vocabularyRows] = await Promise.all([
+    db
+      .select({ you: corrections.you, better: corrections.better })
+      .from(corrections)
+      .innerJoin(sessions, eq(corrections.sessionId, sessions.id))
+      .orderBy(desc(sessions.startedAt), desc(corrections.id))
+      .limit(WARMUP_POOL_LIMIT),
+    db
+      .select({ phrase: vocabulary.phrase })
+      .from(vocabulary)
+      .innerJoin(sessions, eq(vocabulary.sessionId, sessions.id))
+      .orderBy(desc(sessions.startedAt), desc(vocabulary.id))
+      .limit(WARMUP_POOL_LIMIT),
+  ])
+  return {
+    corrections: correctionRows,
+    vocabulary: vocabularyRows.map((r) => r.phrase),
   }
 }
 

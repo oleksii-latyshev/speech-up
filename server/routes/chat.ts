@@ -20,6 +20,7 @@ export const chatRoute = new Elysia().post(
       scenario,
       start = false,
       difficulty,
+      warmup = [],
     } = body
 
     const scenarioId = scenario && isScenarioId(scenario) ? scenario : undefined
@@ -27,7 +28,7 @@ export const chatRoute = new Elysia().post(
     const userContent = start ? OPENING_INSTRUCTION : transcript
 
     const messages = [
-      { role: "system", content: buildSystemPrompt(scenarioId, level) },
+      { role: "system", content: buildSystemPrompt(scenarioId, level, warmup) },
       ...history,
       { role: "user", content: userContent },
     ]
@@ -68,6 +69,7 @@ export const chatRoute = new Elysia().post(
       scenario: t.Optional(t.String()),
       start: t.Optional(t.Boolean()),
       difficulty: t.Optional(t.String()),
+      warmup: t.Optional(t.Array(t.String())),
     }),
   }
 )

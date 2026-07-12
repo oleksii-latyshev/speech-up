@@ -42,7 +42,7 @@ Conversation alone is practice, but confidence grows from feedback and from over
 
 9. **SQLite + Drizzle ORM** ✅ — persist sessions, mistakes, and vocabulary across restarts.
 10. **Progress screen** ✅ — stats: session count, speaking time, average utterance length, recurring error tags. Visible progress = motivation.
-11. **Warm-up on past mistakes** — at session start the AI prompts the user to use 2–3 phrases from previous debriefs. Simplest form of spaced repetition.
+11. **Warm-up on past mistakes** ✅ — at session start the AI prompts the user to use 2–3 phrases from previous debriefs. Simplest form of spaced repetition.
 
 ### Phase 5 — Later
 
@@ -165,6 +165,13 @@ User speaks
 - **UI** (`src/features/progress`): full-screen overlay opened from a header button (always visible) — 4 stat tiles, a 14-day bar chart (shadcn `chart.tsx` + recharts, single primary hue, tooltip with minutes · sessions), "Recurring mistakes" ranked meter list, "Recent sessions" list (scenario icon, date, turns, duration, difficulty), plus skeleton loading, error-with-retry, and an empty state
 - Old corrections rows (before tagging) simply have `tag = NULL` and are excluded from the tag stats
 
+### Warm-up on past mistakes (Phase 4, item 11)
+- **`GET /api/warmup`** (`server/routes/warmup.ts`) — picks up to 3 phrases (2 corrections' "better" + 1 vocabulary entry, backfilled from either pool) via the pure helper `server/helpers/warmup.ts`: recency-weighted random sampling without replacement over the last 30 rows of each table, deduped, phrases longer than 12 words skipped; vocabulary entries are split into phrase + Russian hint on the dash
+- **Chat integration**: `ChatRequest.warmup?: string[]` (contract) is sent on every `/api/chat` call; the system prompt tells the model to never say the phrases itself and to praise in the Russian coaching note when one shows up in his speech
+- **UI** (`src/features/chat/components/WarmupCard.tsx`): a card pinned as the first item of the chat — phrase rows with check circles, source hints ("instead of …" for corrections, Russian explanation for vocabulary), tap-to-hear TTS, and a "N of 3" counter that flips to an emerald "All done!"
+- **Used-phrase detection is client-side** (`src/features/chat/helpers/warmupMatch.ts`, unit-tested): after each transcript, fuzzy matching (normalized substring or ≥70% of content words, morphological prefix match for single words ≥4 chars) checks phrases off in real time
+- `useConversation` fetches the warm-up in parallel with session creation on `startScenario` (best-effort — an empty list just hides the card)
+
 ### Coach features (Phase 2)
 - **Difficulty levels** (`easy`/`medium`/`hard`, segmented control on the picker, persisted to localStorage): difficulty adjusts the AI's speech style in the system prompt; on `easy` the `/api/chat` JSON gains a `suggestions` array (2 example replies) rendered as chips under the last AI turn — clicking a chip plays it via TTS
 - **`/api/hint`** (`server/routes/hint.ts`) — "I'm stuck" button (shown on easy+medium): sends history + scenario, returns `{suggestions}` rendered in the same chips UI
@@ -174,7 +181,7 @@ User speaks
 
 ## What Still Needs to Be Built ❌
 
-See the **Roadmap** section above — Phases 1–3 and the Phase 4 persistence layer + progress screen (items 9–10) are done; next up in Phase 4: warm-up on past mistakes (item 11), which can read past corrections/vocabulary from the DB.
+See the **Roadmap** section above — Phases 1–4 are done; what remains is Phase 5: mobile / iOS Safari support (item 12) and pronunciation feedback (item 13).
 
 ---
 
