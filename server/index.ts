@@ -9,7 +9,7 @@ import { debriefRoute } from "./routes/debrief"
 
 await startNativeServices()
 
-const app = new Elysia({ prefix: "/api" })
+new Elysia({ prefix: "/api" })
   .get("/health", () => ({ status: "ok", timestamp: new Date().toISOString() }))
   .use(transcribeRoute)
   .use(chatRoute)
@@ -18,4 +18,6 @@ const app = new Elysia({ prefix: "/api" })
   .use(debriefRoute)
   .listen(config.port)
 
-console.log(`Server running at http://localhost:${config.port} (AI_MODE=${config.aiMode})`)
+console.log(
+  `Server running at http://localhost:${config.port} (AI_MODE=${config.aiMode})`
+)

@@ -102,7 +102,7 @@ User speaks
   - `docker` — the compose services above; portable fallback / demo mode. CPU-only on macOS (Docker Desktop can't pass the Apple GPU through; measured ~8–12 tok/s for qwen3:8b).
   - `native` (macOS) — host Ollama with Metal (~23 tok/s measured on M1 Pro) + `local_ai/server.py`: FastAPI on port 8000 with mlx-whisper (Metal) for STT and kokoro-onnx for TTS, same OpenAI-compatible endpoints as the docker services. `server/native.ts` auto-spawns `ollama serve` (with `OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=q8_0`) and `local_ai` on `bun dev:server` start — skipping whatever is already listening — and kills them on exit, so nothing stays in the background. Setup: `brew install ollama`, `ollama pull qwen3:8b`, `python3 -m venv local_ai/.venv && local_ai/.venv/bin/pip install -r local_ai/requirements.txt`. Models auto-download on first start (mlx whisper ~1.6 GB from HF, kokoro ~330 MB from GitHub). webm decoding is done with PyAV (bundled ffmpeg) — no brew ffmpeg needed. Never run host Ollama and the docker `ollama` service simultaneously (port 11434).
 
-### Voice Capture (`src/hooks/useVoiceCapture.ts`)
+### Voice Capture (`src/core/capture/useVoiceCapture.ts`)
 - **Auto mode** — RMS amplitude loop; fires after 2.5 s of silence post-speech
 - **Push-to-talk** — hold button → record, release → send
 - Clean cleanup on unmount, no external VAD library dependencies
@@ -122,7 +122,7 @@ User speaks
 - `POST /api/tts` — receives `text` + `voice`, streams mp3 from Kokoro
 - Kokoro voices: 40+ options grouped by American/British × Female/Male
 
-### UI (`src/App.tsx`)
+### UI (`src/features/chat`, shell in `src/App.tsx` — see [CODE_RULES.md](CODE_RULES.md) for the layout)
 - Chat bubble layout: user right, AI left, amber coaching note below each turn
 - Auto-plays TTS after each AI response; violet button + "Speaking… (tap to skip)" while playing
 - Tapping mic/hold button during playback skips TTS and starts recording
@@ -136,23 +136,23 @@ User speaks
 - Voice choice persisted to localStorage
 
 ### Scenarios (Phase 1)
-- `server/scenarios.ts` — personas: interview (frontend / backend / fullstack / general), daily standup, technical discussion, casual chat; shared coaching rules appended to every persona
+- `server/helpers/prompts.ts` — personas: interview (frontend / backend / fullstack / general), daily standup, technical discussion, casual chat; shared coaching rules appended to every persona
 - `/api/chat` accepts `scenario` (id) and `start` (boolean); with `start: true` the AI opens the conversation (greeting + first question), `coaching` empty
-- `src/components/ScenarioPicker.tsx` — card-grid picker shown before the first turn; interview card has 4 role chips; ids in `src/lib/scenarios.ts` mirror the server
+- `src/features/scenario/components/ScenarioPicker.tsx` — card-grid picker shown before the first turn; interview card has 4 role chips; ids live in the shared contract `src/core/session/contract.ts`
 - The AI's opening turn is stored as a turn with empty `transcript` (rendered without a user bubble, excluded from `history` as a user message)
 - **New chat** button in the header resets the session (AlertDialog confirm when a conversation exists); `useVoiceCapture.cancel()` discards any in-flight recording without triggering transcription
 
 ### Streaming pipeline (Phase 3)
 - Model output format is plain text with `---` separators (reply / coaching / suggestions) instead of JSON — enables streaming and is more robust for a small model
 - `/api/chat` streams NDJSON events: `{"t":"delta"}` per token chunk, `{"t":"response"}` when the English reply is complete (client starts TTS here), then `{"t":"coaching"}`, `{"t":"suggestions"}` (easy only), `{"t":"done"}`; the server holds back a small tail so a partial `\n---` never leaks into deltas
-- Client (`streamChat` in `src/App.tsx`): growing AI bubble with a cursor while streaming; typing dots before the first token
+- Client (`streamChat` in `src/core/api`): growing AI bubble with a cursor while streaming; typing dots before the first token
 - `playTTS` splits text into sentences and pipelines them: the next sentence is synthesized while the current one plays (generation counter `playSeqRef` invalidates the queue on skip/reset)
 - User transcript renders immediately after STT (`pendingTranscript`); status label shows Transcribing… / Thinking… (`phase` state)
 
 ### Coach features (Phase 2)
 - **Difficulty levels** (`easy`/`medium`/`hard`, segmented control on the picker, persisted to localStorage): difficulty adjusts the AI's speech style in the system prompt; on `easy` the `/api/chat` JSON gains a `suggestions` array (2 example replies) rendered as chips under the last AI turn — clicking a chip plays it via TTS
 - **`/api/hint`** (`server/routes/hint.ts`) — "I'm stuck" button (shown on easy+medium): sends history + scenario, returns `{suggestions}` rendered in the same chips UI
-- **`/api/debrief`** (`server/routes/debrief.ts`) — "Finish" button (appears once the user has spoken): sends all turns + coaching notes, returns a Russian review `{overview, corrections[{you,better}], vocabulary[], praise}` rendered by `src/components/SessionReview.tsx` (full-screen overlay with loading/error states, "Start a new conversation" at the bottom)
+- **`/api/debrief`** (`server/routes/debrief.ts`) — "Finish" button (appears once the user has spoken): sends all turns + coaching notes, returns a Russian review `{overview, corrections[{you,better}], vocabulary[], praise}` rendered by `src/features/review/components/SessionReview.tsx` (full-screen overlay with loading/error states, "Start a new conversation" at the bottom)
 
 ---
 

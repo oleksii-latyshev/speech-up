@@ -23,7 +23,9 @@ export const ttsRoute = new Elysia().post(
 
     return new Response(res.body, {
       // native local_ai returns wav, kokoro-fastapi returns mp3 — forward whichever
-      headers: { "Content-Type": res.headers.get("Content-Type") ?? "audio/mpeg" },
+      headers: {
+        "Content-Type": res.headers.get("Content-Type") ?? "audio/mpeg",
+      },
     })
   },
   {
@@ -31,5 +33,5 @@ export const ttsRoute = new Elysia().post(
       text: t.String(),
       voice: t.String(),
     }),
-  },
+  }
 )

@@ -14,10 +14,15 @@ export const config = {
     model: process.env.OLLAMA_MODEL ?? "qwen3:8b",
   },
   whisper: {
-    url: process.env.WHISPER_URL ?? (native ? "http://localhost:8000" : "http://localhost:8001"),
-    model: process.env.WHISPER_MODEL ?? "deepdml/faster-whisper-large-v3-turbo-ct2",
+    url:
+      process.env.WHISPER_URL ??
+      (native ? "http://localhost:8000" : "http://localhost:8001"),
+    model:
+      process.env.WHISPER_MODEL ?? "deepdml/faster-whisper-large-v3-turbo-ct2",
   },
   kokoro: {
-    url: process.env.KOKORO_URL ?? (native ? "http://localhost:8000" : "http://localhost:8880"),
+    url:
+      process.env.KOKORO_URL ??
+      (native ? "http://localhost:8000" : "http://localhost:8880"),
   },
 }

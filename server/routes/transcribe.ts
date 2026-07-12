@@ -10,7 +10,10 @@ export const transcribeRoute = new Elysia().post(
     form.append("file", audio, audio.name || "audio.webm")
     form.append("model", config.whisper.model)
     form.append("language", "en")
-    form.append("prompt", "Oleksii is practicing spoken English. Topics: work experience, daily life, travel, hobbies, goals.")
+    form.append(
+      "prompt",
+      "Oleksii is practicing spoken English. Topics: work experience, daily life, travel, hobbies, goals."
+    )
     form.append("response_format", "json")
 
     const res = await fetch(`${config.whisper.url}/v1/audio/transcriptions`, {
@@ -30,5 +33,5 @@ export const transcribeRoute = new Elysia().post(
     body: t.Object({
       audio: t.File(),
     }),
-  },
+  }
 )

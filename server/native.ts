@@ -31,7 +31,7 @@ export async function startNativeServices(): Promise<void> {
         },
         stdout: "ignore",
         stderr: "ignore",
-      }),
+      })
     )
   }
 
@@ -40,7 +40,7 @@ export async function startNativeServices(): Promise<void> {
   } else if (!existsSync(LOCAL_AI_PYTHON)) {
     console.warn(
       "[native] local_ai venv not found — run:\n" +
-        "  python3 -m venv local_ai/.venv && local_ai/.venv/bin/pip install -r local_ai/requirements.txt",
+        "  python3 -m venv local_ai/.venv && local_ai/.venv/bin/pip install -r local_ai/requirements.txt"
     )
   } else {
     console.log("[native] starting local_ai (mlx-whisper + kokoro)…")
@@ -49,7 +49,7 @@ export async function startNativeServices(): Promise<void> {
         cwd: LOCAL_AI_DIR,
         stdout: "inherit",
         stderr: "inherit",
-      }),
+      })
     )
   }
 
