@@ -98,6 +98,7 @@ User speaks
 - Ollama init container pulls `qwen3:8b` automatically on first run
 - `WHISPER__MODEL_TTL=60` — whisper unloads after 60 s of idle to free RAM
 - Docker Desktop must be set to ≥ 12 GB RAM (M1 Pro: qwen3:8b ~5 GB + whisper ~3 GB)
+- **Perf note (not yet done): Ollama inside Docker on macOS is CPU-only** — Docker Desktop can't pass the Apple GPU through. Running Ollama **natively on the host** (`brew install ollama`) uses Metal on the M1 Pro and generates typically 3–5× faster. Same port 11434, so the only changes are: stop the `ollama`/`ollama-init` compose services and point `OLLAMA_URL` at the host ollama (already the default `http://localhost:11434`). Model data would need one `ollama pull qwen3:8b` on the host.
 
 ### Voice Capture (`src/hooks/useVoiceCapture.ts`)
 - **Auto mode** — RMS amplitude loop; fires after 2.5 s of silence post-speech
@@ -127,6 +128,7 @@ User speaks
 ### Settings Panel
 - **Theme**: System / Light / Dark (persisted to localStorage, applies `.dark` class)
 - **Pause before sending**: slider 1–5 s (step 0.25 s) controlling the VAD `silenceDuration`, persisted to localStorage
+- **Speak replies aloud**: switch (persisted, default on). Off = text-only replies, no TTS calls at all — fastest turn-around; suggestion chips and voice preview still play on explicit tap
 - **AI Voice**: All Kokoro English voices in a 3-column grid, grouped by accent+gender
 - Click any voice → selects it AND immediately previews it (no separate preview button)
 - Voice choice persisted to localStorage
