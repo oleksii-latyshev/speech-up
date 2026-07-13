@@ -83,6 +83,14 @@ sequenceDiagram
 | TTS | kokoro-onnx (native) / kokoro-fastapi (docker), 40+ English voices |
 | Voice capture | Web Audio API (RMS-based VAD) + MediaRecorder, zero VAD dependencies |
 
+## Daily use
+
+```bash
+bun start                   # builds the UI, serves app + API on :3001, opens the browser
+```
+
+One command, one process: the production frontend build is served by the Bun server itself (no Vite dev server), and in native mode the AI stack is auto-started alongside and killed on exit.
+
 ## Development Setup
 
 Two AI-stack modes, switched by `AI_MODE` in `.env` (see `.env.example`):

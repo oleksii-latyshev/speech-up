@@ -95,6 +95,7 @@ User speaks
 ## What Is Already Built ✅
 
 ### Infrastructure
+- **Production launch**: `bun start` — `vite build` + the Elysia server with `SERVE_STATIC=1`, which serves `dist/` (SPA fallback to `index.html`) and auto-opens the browser when run from a terminal on macOS
 - Docker Compose: Ollama + faster-whisper + Kokoro, all healthy
 - Ollama init container pulls `qwen3:8b` automatically on first run
 - `WHISPER__MODEL_TTL=60` — whisper unloads after 60 s of idle to free RAM

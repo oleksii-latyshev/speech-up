@@ -9,6 +9,7 @@ const native = aiMode === "native"
 export const config = {
   port: Number(process.env.PORT ?? 3001),
   aiMode,
+  serveStatic: process.env.SERVE_STATIC === "1",
   db: {
     path: process.env.DB_PATH ?? "data/speech-up.db",
   },

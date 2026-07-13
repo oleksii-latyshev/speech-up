@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:server": "bun --watch server/index.ts",
+    "start": "vite build && SERVE_STATIC=1 bun server/index.ts",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
