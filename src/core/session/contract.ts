@@ -100,6 +100,17 @@ export interface PlanCheck {
   goalAchieved: boolean
 }
 
+// A finished lesson (a plan whose debrief filled in the outcome).
+export interface LessonSummary {
+  id: number
+  scenario: ScenarioId
+  focusTags: ErrorTag[]
+  microGoal: string
+  focusResult: string
+  goalAchieved: boolean
+  createdAt: number
+}
+
 export interface Turn {
   transcript: string // empty for the AI's opening turn
   response: string
@@ -113,6 +124,7 @@ export interface SessionSummary {
   startedAt: number
   endedAt: number | null
   turnCount: number
+  lesson: boolean
 }
 
 export interface DayActivity {

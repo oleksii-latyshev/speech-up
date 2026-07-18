@@ -2,9 +2,11 @@ export {
   createSession,
   endSession,
   fetchLessonPlan,
+  fetchLessons,
   fetchProgress,
   fetchWarmup,
   listSessions,
+  regenerateLessonPlan,
   requestDebrief,
   requestHints,
   saveTurn,
@@ -13,4 +15,5 @@ export {
   transcribe,
   type ChatCallbacks,
   type ChatResult,
+  type LessonPlanResult,
 } from "./client"

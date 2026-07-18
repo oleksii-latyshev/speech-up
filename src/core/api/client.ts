@@ -4,6 +4,7 @@ import type {
   ChatRequest,
   Difficulty,
   LessonPlan,
+  LessonSummary,
   ProgressStats,
   ReviewData,
   ScenarioId,
@@ -147,10 +148,26 @@ export async function fetchProgress(): Promise<ProgressStats> {
   return (await res.json()) as ProgressStats
 }
 
-export async function fetchLessonPlan(): Promise<LessonPlan> {
+export interface LessonPlanResult {
+  plan: LessonPlan
+  lessonNumber: number
+}
+
+export async function fetchLessonPlan(): Promise<LessonPlanResult> {
   const res = await fetch("/api/plan")
   if (!res.ok) throw new Error(`/api/plan failed with ${res.status}`)
-  return ((await res.json()) as { plan: LessonPlan }).plan
+  return (await res.json()) as LessonPlanResult
+}
+
+export async function regenerateLessonPlan(): Promise<LessonPlanResult> {
+  const res = await postJson("/api/plan/regenerate", {})
+  return (await res.json()) as LessonPlanResult
+}
+
+export async function fetchLessons(): Promise<LessonSummary[]> {
+  const res = await fetch("/api/lessons")
+  if (!res.ok) throw new Error(`/api/lessons failed with ${res.status}`)
+  return ((await res.json()) as { lessons: LessonSummary[] }).lessons
 }
 
 export async function fetchWarmup(): Promise<WarmupPhrase[]> {

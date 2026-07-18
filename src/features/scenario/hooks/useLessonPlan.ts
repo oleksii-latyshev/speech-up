@@ -1,23 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { fetchLessonPlan } from "@/core/api"
+import {
+  fetchLessonPlan,
+  regenerateLessonPlan,
+  type LessonPlanResult,
+} from "@/core/api"
 import type { LessonPlan } from "@/core/session"
 
 export interface LessonPlanState {
   plan: LessonPlan | null
+  lessonNumber: number | null
   loading: boolean
   error: string | null
   retry: () => void
+  regenerate: () => void
 }
 
 export function useLessonPlan(enabled: boolean): LessonPlanState {
-  const [plan, setPlan] = useState<LessonPlan | null>(null)
+  const [result, setResult] = useState<LessonPlanResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(
-    () =>
-      fetchLessonPlan()
-        .then(setPlan)
+  const run = useCallback(
+    (request: () => Promise<LessonPlanResult>) =>
+      request()
+        .then(setResult)
         .catch((err) =>
           setError(err instanceof Error ? err.message : "Unknown error")
         )
@@ -25,19 +31,29 @@ export function useLessonPlan(enabled: boolean): LessonPlanState {
     []
   )
 
-  const retry = useCallback(() => {
-    setLoading(true)
-    setError(null)
-    void load()
-  }, [load])
+  const restart = useCallback(
+    (request: () => Promise<LessonPlanResult>) => {
+      setLoading(true)
+      setError(null)
+      void run(request)
+    },
+    [run]
+  )
 
   const startedRef = useRef(false)
   useEffect(() => {
     if (enabled && !startedRef.current) {
       startedRef.current = true
-      void load()
+      void run(fetchLessonPlan)
     }
-  }, [enabled, load])
+  }, [enabled, run])
 
-  return { plan, loading, error, retry }
+  return {
+    plan: result?.plan ?? null,
+    lessonNumber: result?.lessonNumber ?? null,
+    loading,
+    error,
+    retry: () => restart(fetchLessonPlan),
+    regenerate: () => restart(regenerateLessonPlan),
+  }
 }

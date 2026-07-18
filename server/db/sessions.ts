@@ -1,4 +1,4 @@
-import { and, count, desc, eq, isNotNull, isNull } from "drizzle-orm"
+import { and, countDistinct, desc, eq, isNotNull, isNull } from "drizzle-orm"
 import type {
   Difficulty,
   ReviewData,
@@ -9,7 +9,14 @@ import type {
 import type { ProgressRows } from "../helpers/progress"
 import type { WarmupRows } from "../helpers/warmup"
 import { db } from "./index"
-import { corrections, reviews, sessions, turns, vocabulary } from "./schema"
+import {
+  corrections,
+  plans,
+  reviews,
+  sessions,
+  turns,
+  vocabulary,
+} from "./schema"
 
 export async function createSession(
   scenario: ScenarioId,
@@ -113,17 +120,20 @@ export async function loadWarmupRows(): Promise<WarmupRows> {
 }
 
 export async function listSessions(): Promise<SessionSummary[]> {
-  return db
+  const rows = await db
     .select({
       id: sessions.id,
       scenario: sessions.scenario,
       difficulty: sessions.difficulty,
       startedAt: sessions.startedAt,
       endedAt: sessions.endedAt,
-      turnCount: count(turns.id),
+      turnCount: countDistinct(turns.id),
+      planCount: countDistinct(plans.id),
     })
     .from(sessions)
     .leftJoin(turns, eq(turns.sessionId, sessions.id))
+    .leftJoin(plans, eq(plans.sessionId, sessions.id))
     .groupBy(sessions.id)
     .orderBy(desc(sessions.startedAt))
+  return rows.map(({ planCount, ...s }) => ({ ...s, lesson: planCount > 0 }))
 }

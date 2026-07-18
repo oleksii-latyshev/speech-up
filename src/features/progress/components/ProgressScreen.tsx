@@ -12,6 +12,7 @@ import { useProgress } from "../hooks/useProgress"
 import { formatDuration } from "../helpers/format"
 import { ActivityChart } from "./ActivityChart"
 import { ErrorTagList } from "./ErrorTagList"
+import { LessonHistory } from "./LessonHistory"
 import { RecentSessions } from "./RecentSessions"
 import { StatTile } from "./StatTile"
 
@@ -20,7 +21,7 @@ interface ProgressScreenProps {
 }
 
 export function ProgressScreen({ onClose }: ProgressScreenProps) {
-  const { loading, error, stats, sessions, reload } = useProgress()
+  const { loading, error, stats, sessions, lessons, reload } = useProgress()
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
@@ -88,6 +89,7 @@ export function ProgressScreen({ onClose }: ProgressScreenProps) {
             </div>
 
             <ActivityChart days={stats.days} />
+            <LessonHistory lessons={lessons} />
             <ErrorTagList tags={stats.errorTags} />
             <RecentSessions sessions={sessions} />
           </div>

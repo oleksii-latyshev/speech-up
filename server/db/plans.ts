@@ -1,5 +1,9 @@
-import { desc, eq, isNotNull, isNull } from "drizzle-orm"
-import type { LessonPlan, PlanCheck } from "../../src/core/session/contract"
+import { count, desc, eq, isNotNull, isNull } from "drizzle-orm"
+import type {
+  LessonPlan,
+  LessonSummary,
+  PlanCheck,
+} from "../../src/core/session/contract"
 import type { PlanContextRows, PlanDraft } from "../helpers/lessonPlan"
 import { db } from "./index"
 import { corrections, plans, sessions, vocabulary } from "./schema"
@@ -42,6 +46,38 @@ export async function linkPlanToSession(
   sessionId: number
 ): Promise<void> {
   await db.update(plans).set({ sessionId }).where(eq(plans.id, planId))
+}
+
+export async function deletePendingPlans(): Promise<void> {
+  await db.delete(plans).where(isNull(plans.focusResult))
+}
+
+const LESSON_HISTORY_LIMIT = 20
+
+export async function completedPlans(): Promise<LessonSummary[]> {
+  const rows = await db
+    .select()
+    .from(plans)
+    .where(isNotNull(plans.focusResult))
+    .orderBy(desc(plans.id))
+    .limit(LESSON_HISTORY_LIMIT)
+  return rows.map((r) => ({
+    id: r.id,
+    scenario: r.scenario,
+    focusTags: r.focusTags,
+    microGoal: r.microGoal,
+    focusResult: r.focusResult ?? "",
+    goalAchieved: r.goalAchieved === true,
+    createdAt: r.createdAt,
+  }))
+}
+
+export async function countCompletedPlans(): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(plans)
+    .where(isNotNull(plans.focusResult))
+  return row.n
 }
 
 export async function savePlanResult(

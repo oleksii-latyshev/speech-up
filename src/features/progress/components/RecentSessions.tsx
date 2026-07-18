@@ -1,3 +1,4 @@
+import { GraduationCap } from "lucide-react"
 import {
   scenarioCardFor,
   scenarioTitle,
@@ -62,6 +63,15 @@ export function RecentSessions({ sessions }: RecentSessionsProps) {
                     ? formatDuration(s.endedAt - s.startedAt)
                     : "in progress"}
                 </span>
+                {s.lesson && (
+                  <Badge
+                    variant="outline"
+                    className="shrink-0 gap-1 border-primary/30 text-primary"
+                  >
+                    <GraduationCap className="size-3" />
+                    Lesson
+                  </Badge>
+                )}
                 <Badge variant="outline" className="shrink-0 capitalize">
                   {s.difficulty}
                 </Badge>

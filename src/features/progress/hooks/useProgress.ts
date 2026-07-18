@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useState } from "react"
-import { fetchProgress, listSessions } from "@/core/api"
-import type { ProgressStats, SessionSummary } from "@/core/session"
+import { fetchLessons, fetchProgress, listSessions } from "@/core/api"
+import type {
+  LessonSummary,
+  ProgressStats,
+  SessionSummary,
+} from "@/core/session"
 
 export interface ProgressState {
   loading: boolean
   error: string | null
   stats: ProgressStats | null
   sessions: SessionSummary[]
+  lessons: LessonSummary[]
   reload: () => void
 }
 
@@ -15,13 +20,15 @@ export function useProgress(): ProgressState {
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState<ProgressStats | null>(null)
   const [sessions, setSessions] = useState<SessionSummary[]>([])
+  const [lessons, setLessons] = useState<LessonSummary[]>([])
 
   const load = useCallback(
     () =>
-      Promise.all([fetchProgress(), listSessions()])
-        .then(([nextStats, nextSessions]) => {
+      Promise.all([fetchProgress(), listSessions(), fetchLessons()])
+        .then(([nextStats, nextSessions, nextLessons]) => {
           setStats(nextStats)
           setSessions(nextSessions)
+          setLessons(nextLessons)
         })
         .catch((err) =>
           setError(err instanceof Error ? err.message : "Unknown error")
@@ -40,5 +47,5 @@ export function useProgress(): ProgressState {
     void load()
   }, [load])
 
-  return { loading, error, stats, sessions, reload }
+  return { loading, error, stats, sessions, lessons, reload }
 }

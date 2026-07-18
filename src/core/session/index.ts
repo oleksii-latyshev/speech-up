@@ -14,6 +14,7 @@ export {
   type ErrorTag,
   type ErrorTagCount,
   type LessonPlan,
+  type LessonSummary,
   type PlanCheck,
   type ProgressStats,
   type ReviewData,

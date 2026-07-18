@@ -1,4 +1,4 @@
-import { ArrowRight, Repeat2, Target, Volume2 } from "lucide-react"
+import { ArrowRight, RefreshCw, Repeat2, Target, Volume2 } from "lucide-react"
 import {
   ERROR_TAG_LABELS,
   scenarioCardFor,
@@ -12,6 +12,7 @@ interface LessonCardProps {
   plan: LessonPlan
   onStart: () => void
   onChangeScenario: () => void
+  onRegenerate: () => void
   onPlayPhrase: (text: string) => void
   disabled?: boolean
 }
@@ -20,6 +21,7 @@ export function LessonCard({
   plan,
   onStart,
   onChangeScenario,
+  onRegenerate,
   onPlayPhrase,
   disabled,
 }: LessonCardProps) {
@@ -97,14 +99,24 @@ export function LessonCard({
         </Button>
       </div>
 
-      <button
-        onClick={onChangeScenario}
-        disabled={disabled}
-        className="mx-auto mt-3 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
-      >
-        <Repeat2 className="size-3.5" />
-        Pick a different scenario — focus and goals stay
-      </button>
+      <div className="mt-3 flex items-center justify-center gap-4">
+        <button
+          onClick={onChangeScenario}
+          disabled={disabled}
+          className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+        >
+          <Repeat2 className="size-3.5" />
+          Pick a different scenario
+        </button>
+        <button
+          onClick={onRegenerate}
+          disabled={disabled}
+          className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+        >
+          <RefreshCw className="size-3.5" />
+          New plan
+        </button>
+      </div>
     </div>
   )
 }

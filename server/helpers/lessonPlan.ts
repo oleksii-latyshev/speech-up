@@ -139,8 +139,7 @@ export function sanitizePlan(raw: unknown, rows: PlanContextRows): PlanDraft {
     asStringArray(obj.targetPhrases)
       .map((p) => p.trim())
       .filter(
-        (p) =>
-          p && wordCount(p) <= MAX_PHRASE_WORDS && fromHistory(p, pool)
+        (p) => p && wordCount(p) <= MAX_PHRASE_WORDS && fromHistory(p, pool)
       )
   ).slice(0, MAX_TARGET_PHRASES)
 

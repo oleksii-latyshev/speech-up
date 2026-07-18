@@ -1,5 +1,10 @@
 import type { LessonPlan } from "../src/core/session/contract"
-import { insertPlan, latestPendingPlan, loadPlanContextRows } from "./db"
+import {
+  deletePendingPlans,
+  insertPlan,
+  latestPendingPlan,
+  loadPlanContextRows,
+} from "./db"
 import {
   fallbackPlan,
   formatPlanContext,
@@ -42,6 +47,12 @@ export function getOrGeneratePlan(): Promise<LessonPlan> {
     inFlight = null
   })
   return inFlight
+}
+
+export async function regeneratePlan(): Promise<LessonPlan> {
+  if (inFlight) await inFlight.catch(() => {})
+  await deletePendingPlans()
+  return getOrGeneratePlan()
 }
 
 export function pregenerateNextPlan(): void {

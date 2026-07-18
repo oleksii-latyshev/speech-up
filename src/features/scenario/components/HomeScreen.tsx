@@ -113,7 +113,9 @@ export function HomeScreen({
               <div className="w-full max-w-xl">
                 <div className="mb-6 text-center">
                   <p className="mb-2.5 text-xs font-semibold tracking-widest text-primary uppercase">
-                    Today's lesson
+                    {lesson.lessonNumber
+                      ? `Lesson ${lesson.lessonNumber}`
+                      : "Today's lesson"}
                   </p>
                   <h2 className="font-heading text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
                     Your coach prepared a plan
@@ -123,6 +125,7 @@ export function HomeScreen({
                   plan={lesson.plan}
                   onStart={() => onPick(lesson.plan!.scenario, lesson.plan!)}
                   onChangeScenario={() => setPickingScenario(true)}
+                  onRegenerate={lesson.regenerate}
                   onPlayPhrase={onPlayPhrase}
                   disabled={disabled}
                 />
