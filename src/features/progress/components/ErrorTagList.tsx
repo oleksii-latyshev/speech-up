@@ -1,4 +1,4 @@
-import type { ErrorTagCount } from "@/core/session"
+import { ERROR_TAG_LABELS, type ErrorTagCount } from "@/core/session"
 import {
   Card,
   CardContent,
@@ -6,7 +6,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/shared/components/ui/card"
-import { ERROR_TAG_LABELS } from "../helpers/format"
 
 const MAX_TAGS = 6
 

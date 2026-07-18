@@ -44,12 +44,13 @@ export interface ChatRequest {
   start?: boolean
   difficulty: Difficulty
   warmup?: string[]
+  focusTags?: ErrorTag[]
 }
 
 export interface WarmupPhrase {
   text: string
   hint: string // the original phrase for corrections, the explanation for vocabulary
-  source: "correction" | "vocabulary"
+  source: "correction" | "vocabulary" | "plan"
 }
 
 export const ERROR_TAG_IDS = [
@@ -79,6 +80,24 @@ export interface ReviewData {
   corrections: Correction[]
   vocabulary: string[]
   praise: string
+  planCheck?: PlanCheck
+}
+
+// Lesson mode: the adaptive plan for the next session, generated from history.
+// focusNote and microGoal are coach content and therefore Russian.
+export interface LessonPlan {
+  id: number
+  scenario: ScenarioId
+  focusTags: ErrorTag[]
+  focusNote: string
+  targetPhrases: string[]
+  microGoal: string
+  createdAt: number
+}
+
+export interface PlanCheck {
+  focusResult: string // Russian: how the lesson's focus went
+  goalAchieved: boolean
 }
 
 export interface Turn {

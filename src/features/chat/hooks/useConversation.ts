@@ -13,6 +13,7 @@ import { useVoiceCapture, type CaptureStatus } from "@/core/capture"
 import {
   hasUserSpoken,
   historyFromTurns,
+  type LessonPlan,
   type ScenarioId,
   type Turn,
   type WarmupPhrase,
@@ -33,6 +34,7 @@ export interface CaptureControls {
 export interface Conversation {
   scenario: ScenarioId | null
   sessionId: number | null
+  plan: LessonPlan | null
   turns: Turn[]
   phase: ConversationPhase
   pendingTranscript: string | null
@@ -45,7 +47,7 @@ export interface Conversation {
   warmup: WarmupPhrase[] | null
   warmupUsed: boolean[]
   capture: CaptureControls
-  startScenario: (id: ScenarioId) => Promise<void>
+  startScenario: (id: ScenarioId, plan?: LessonPlan) => Promise<void>
   requestHint: () => Promise<void>
   reset: () => void
 }
@@ -56,6 +58,7 @@ export function useConversation(
 ): Conversation {
   const [scenario, setScenario] = useState<ScenarioId | null>(null)
   const [sessionId, setSessionId] = useState<number | null>(null)
+  const [plan, setPlan] = useState<LessonPlan | null>(null)
   const [turns, setTurns] = useState<Turn[]>([])
   const [phase, setPhase] = useState<ConversationPhase>(null)
   const [pendingTranscript, setPendingTranscript] = useState<string | null>(
@@ -73,6 +76,7 @@ export function useConversation(
   const turnsRef = useRef(turns)
   const scenarioRef = useRef(scenario)
   const sessionIdRef = useRef(sessionId)
+  const planRef = useRef(plan)
   const settingsRef = useRef(settings)
   const playerRef = useRef(player)
   const warmupRef = useRef(warmup)
@@ -80,6 +84,7 @@ export function useConversation(
     turnsRef.current = turns
     scenarioRef.current = scenario
     sessionIdRef.current = sessionId
+    planRef.current = plan
     settingsRef.current = settings
     playerRef.current = player
     warmupRef.current = warmup
@@ -132,6 +137,7 @@ export function useConversation(
           scenario: activeScenario,
           difficulty: settingsRef.current.difficulty,
           warmup: warmupTexts(),
+          focusTags: planRef.current?.focusTags,
         },
         {
           onDelta: setStreamingText,
@@ -161,20 +167,28 @@ export function useConversation(
       silenceDuration: settings.silenceMs,
     })
 
-  const startScenario = async (id: ScenarioId) => {
+  const startScenario = async (id: ScenarioId, lessonPlan?: LessonPlan) => {
     setScenario(id)
+    setPlan(lessonPlan ?? null)
+    planRef.current = lessonPlan ?? null
     setError(null)
     setIsStarting(true)
     setStreamingText("")
     const [newSessionId, warmupPhrases] = await Promise.all([
-      createSession(id, settings.difficulty).catch((err) => {
+      createSession(id, settings.difficulty, lessonPlan?.id).catch((err) => {
         console.warn("Failed to create session:", err)
         return null
       }),
-      fetchWarmup().catch((err) => {
-        console.warn("Failed to fetch warm-up phrases:", err)
-        return [] as WarmupPhrase[]
-      }),
+      lessonPlan
+        ? Promise.resolve(
+            lessonPlan.targetPhrases.map(
+              (text): WarmupPhrase => ({ text, hint: "", source: "plan" })
+            )
+          )
+        : fetchWarmup().catch((err) => {
+            console.warn("Failed to fetch warm-up phrases:", err)
+            return [] as WarmupPhrase[]
+          }),
     ])
     setSessionId(newSessionId)
     sessionIdRef.current = newSessionId
@@ -189,10 +203,15 @@ export function useConversation(
           start: true,
           difficulty: settings.difficulty,
           warmup: warmupTexts(),
+          focusTags: lessonPlan?.focusTags,
         },
         { onDelta: setStreamingText, onResponse: speak }
       )
-      const opening = { transcript: "", response: result.response, coaching: "" }
+      const opening = {
+        transcript: "",
+        response: result.response,
+        coaching: "",
+      }
       setTurns([opening])
       persistTurn(opening)
       setSuggestions(result.suggestions?.length ? result.suggestions : null)
@@ -230,6 +249,8 @@ export function useConversation(
     setSessionId(null)
     sessionIdRef.current = null
     setScenario(null)
+    setPlan(null)
+    planRef.current = null
     setTurns([])
     setPhase(null)
     setPendingTranscript(null)
@@ -246,6 +267,7 @@ export function useConversation(
   return {
     scenario,
     sessionId,
+    plan,
     turns,
     phase,
     pendingTranscript,

@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia"
 import {
   isDifficulty,
+  isErrorTag,
   isScenarioId,
   type ChatEvent,
 } from "../../src/core/session/contract"
@@ -21,14 +22,19 @@ export const chatRoute = new Elysia().post(
       start = false,
       difficulty,
       warmup = [],
+      focusTags = [],
     } = body
 
     const scenarioId = scenario && isScenarioId(scenario) ? scenario : undefined
     const level = difficulty && isDifficulty(difficulty) ? difficulty : "medium"
+    const focus = focusTags.filter(isErrorTag)
     const userContent = start ? OPENING_INSTRUCTION : transcript
 
     const messages = [
-      { role: "system", content: buildSystemPrompt(scenarioId, level, warmup) },
+      {
+        role: "system",
+        content: buildSystemPrompt(scenarioId, level, warmup, focus),
+      },
       ...history,
       { role: "user", content: userContent },
     ]
@@ -70,6 +76,7 @@ export const chatRoute = new Elysia().post(
       start: t.Optional(t.Boolean()),
       difficulty: t.Optional(t.String()),
       warmup: t.Optional(t.Array(t.String())),
+      focusTags: t.Optional(t.Array(t.String())),
     }),
   }
 )

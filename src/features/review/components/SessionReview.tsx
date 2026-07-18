@@ -1,13 +1,17 @@
 import {
   ArrowRight,
   BookOpen,
+  CircleCheck,
+  CircleDashed,
   ClipboardCheck,
   Loader2,
   Sparkles,
+  Target,
   X,
 } from "lucide-react"
 import type { ReviewData } from "@/core/session"
 import { Button } from "@/shared/components/ui/button"
+import { cn } from "@/shared/lib/utils"
 
 interface SessionReviewProps {
   loading: boolean
@@ -72,6 +76,37 @@ export function SessionReview({
                   Overview
                 </h3>
                 <p className="text-sm leading-relaxed">{data.overview}</p>
+              </section>
+            )}
+
+            {data.planCheck && (
+              <section className="space-y-3">
+                <h3 className="flex items-center gap-1.5 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+                  <Target className="size-3.5" />
+                  Lesson plan
+                </h3>
+                <div className="rounded-2xl bg-card px-4 py-3.5 shadow-xs ring-1 ring-primary/20">
+                  <p className="text-sm leading-relaxed">
+                    {data.planCheck.focusResult}
+                  </p>
+                  <p
+                    className={cn(
+                      "mt-2.5 flex items-center gap-1.5 text-xs font-semibold",
+                      data.planCheck.goalAchieved
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    {data.planCheck.goalAchieved ? (
+                      <CircleCheck className="size-3.5" />
+                    ) : (
+                      <CircleDashed className="size-3.5" />
+                    )}
+                    {data.planCheck.goalAchieved
+                      ? "Goal achieved — the next lesson builds on it"
+                      : "Goal carries over to the next lesson"}
+                  </p>
+                </div>
               </section>
             )}
 

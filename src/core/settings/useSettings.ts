@@ -7,7 +7,10 @@ const KEYS = {
   voiceEnabled: "speech-up:voice-enabled",
   silenceMs: "speech-up:silence-ms",
   difficulty: "speech-up:difficulty",
+  practiceMode: "speech-up:practice-mode",
 }
+
+export type PracticeMode = "free" | "lesson"
 
 export const MIN_SILENCE_MS = 1000
 export const MAX_SILENCE_MS = 5000
@@ -22,6 +25,8 @@ export interface Settings {
   setSilenceMs: (ms: number) => void
   difficulty: Difficulty
   setDifficulty: (d: Difficulty) => void
+  practiceMode: PracticeMode
+  setPracticeMode: (m: PracticeMode) => void
 }
 
 function usePersisted<T>(
@@ -63,6 +68,11 @@ export function useSettings(): Settings {
     (s) => (s && isDifficulty(s) ? s : "easy"),
     (d) => d
   )
+  const [practiceMode, setPracticeMode] = usePersisted<PracticeMode>(
+    KEYS.practiceMode,
+    (s) => (s === "lesson" ? "lesson" : "free"),
+    (m) => m
+  )
 
   return {
     voice,
@@ -73,5 +83,7 @@ export function useSettings(): Settings {
     setSilenceMs,
     difficulty,
     setDifficulty,
+    practiceMode,
+    setPracticeMode,
   }
 }

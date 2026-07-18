@@ -87,6 +87,10 @@ export const SCENARIOS: ScenarioCard[] = [
   },
 ]
 
+export const scenarioCardFor = (id: ScenarioId): ScenarioCard =>
+  SCENARIOS.find((s) => s.id === id || s.roles?.some((r) => r.id === id)) ??
+  SCENARIOS[0]
+
 const SCENARIO_TITLES: Record<ScenarioId, string> = {
   "interview-frontend": "Interview · Frontend",
   "interview-backend": "Interview · Backend",

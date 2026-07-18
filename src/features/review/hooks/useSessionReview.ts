@@ -7,7 +7,12 @@ export interface SessionReviewState {
   loading: boolean
   data: ReviewData | null
   error: string | null
-  show: (scenario: ScenarioId, turns: Turn[], sessionId: number | null) => void
+  show: (
+    scenario: ScenarioId,
+    turns: Turn[],
+    sessionId: number | null,
+    planId?: number
+  ) => void
   retry: () => void
   close: () => void
 }
@@ -21,17 +26,21 @@ export function useSessionReview(): SessionReviewState {
     scenario: ScenarioId
     turns: Turn[]
     sessionId: number | null
+    planId?: number
   } | null>(null)
 
   const fetchReview = async (
     scenario: ScenarioId,
     turns: Turn[],
-    sessionId: number | null
+    sessionId: number | null,
+    planId?: number
   ) => {
     setLoading(true)
     setError(null)
     try {
-      setData(await requestDebrief(scenario, turns, sessionId ?? undefined))
+      setData(
+        await requestDebrief(scenario, turns, sessionId ?? undefined, planId)
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error")
     } finally {
@@ -39,16 +48,26 @@ export function useSessionReview(): SessionReviewState {
     }
   }
 
-  const show = (scenario: ScenarioId, turns: Turn[], sessionId: number | null) => {
+  const show = (
+    scenario: ScenarioId,
+    turns: Turn[],
+    sessionId: number | null,
+    planId?: number
+  ) => {
     setOpen(true)
     setData(null)
-    setRequest({ scenario, turns, sessionId })
-    void fetchReview(scenario, turns, sessionId)
+    setRequest({ scenario, turns, sessionId, planId })
+    void fetchReview(scenario, turns, sessionId, planId)
   }
 
   const retry = () => {
     if (request)
-      void fetchReview(request.scenario, request.turns, request.sessionId)
+      void fetchReview(
+        request.scenario,
+        request.turns,
+        request.sessionId,
+        request.planId
+      )
   }
 
   const close = () => setOpen(false)

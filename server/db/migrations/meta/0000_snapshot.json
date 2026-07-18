@@ -42,12 +42,8 @@
           "name": "corrections_session_id_sessions_id_fk",
           "tableFrom": "corrections",
           "tableTo": "sessions",
-          "columnsFrom": [
-            "session_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["session_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -98,9 +94,7 @@
       "indexes": {
         "reviews_session_id_unique": {
           "name": "reviews_session_id_unique",
-          "columns": [
-            "session_id"
-          ],
+          "columns": ["session_id"],
           "isUnique": true
         }
       },
@@ -109,12 +103,8 @@
           "name": "reviews_session_id_sessions_id_fk",
           "tableFrom": "reviews",
           "tableTo": "sessions",
-          "columnsFrom": [
-            "session_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["session_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -220,12 +210,8 @@
           "name": "turns_session_id_sessions_id_fk",
           "tableFrom": "turns",
           "tableTo": "sessions",
-          "columnsFrom": [
-            "session_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["session_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -265,12 +251,8 @@
           "name": "vocabulary_session_id_sessions_id_fk",
           "tableFrom": "vocabulary",
           "tableTo": "sessions",
-          "columnsFrom": [
-            "session_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["session_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

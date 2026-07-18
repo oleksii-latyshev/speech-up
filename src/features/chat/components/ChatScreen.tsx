@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react"
 import type { TtsPlayer } from "@/core/audio"
+import { ERROR_TAG_LABELS } from "@/core/session"
 import type { Settings } from "@/core/settings"
 import type { Conversation } from "../hooks/useConversation"
 import {
@@ -37,6 +38,7 @@ export function ChatScreen({
     capture,
     warmup,
     warmupUsed,
+    plan,
   } = conversation
 
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -48,11 +50,21 @@ export function ChatScreen({
     <>
       <div className="flex-1 overflow-y-auto px-4 py-5">
         <div className="mx-auto w-full max-w-2xl space-y-4">
-          {warmup && (
+          {(warmup || plan) && (
             <WarmupCard
-              phrases={warmup}
+              phrases={warmup ?? []}
               used={warmupUsed}
               onPlay={(text) => void player.play(text, settings.voice)}
+              lesson={
+                plan
+                  ? {
+                      focusLabels: plan.focusTags.map(
+                        (tag) => ERROR_TAG_LABELS[tag]
+                      ),
+                      microGoal: plan.microGoal,
+                    }
+                  : undefined
+              }
             />
           )}
 

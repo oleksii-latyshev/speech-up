@@ -13,15 +13,19 @@ export {
   type Difficulty,
   type ErrorTag,
   type ErrorTagCount,
+  type LessonPlan,
+  type PlanCheck,
   type ProgressStats,
   type ReviewData,
   type ScenarioId,
   type SessionSummary,
   type WarmupPhrase,
 } from "./contract"
+export { ERROR_TAG_LABELS } from "./errorTags"
 export {
   DIFFICULTIES,
   SCENARIOS,
+  scenarioCardFor,
   scenarioTitle,
   type InterviewRole,
   type ScenarioCard,

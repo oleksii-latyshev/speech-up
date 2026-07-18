@@ -17,4 +17,5 @@ export const db = drizzle(sqlite, { schema })
 export const runMigrations = () =>
   migrate(db, { migrationsFolder: join(import.meta.dir, "migrations") })
 
+export * from "./plans"
 export * from "./sessions"

@@ -45,6 +45,23 @@ export const corrections = sqliteTable("corrections", {
   tag: text("tag").$type<ErrorTag>(),
 })
 
+export const plans = sqliteTable("plans", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  scenario: text("scenario").$type<ScenarioId>().notNull(),
+  focusTags: text("focus_tags", { mode: "json" }).$type<ErrorTag[]>().notNull(),
+  focusNote: text("focus_note").notNull(),
+  targetPhrases: text("target_phrases", { mode: "json" })
+    .$type<string[]>()
+    .notNull(),
+  microGoal: text("micro_goal").notNull(),
+  createdAt: integer("created_at").notNull(),
+  sessionId: integer("session_id").references(() => sessions.id, {
+    onDelete: "set null",
+  }),
+  focusResult: text("focus_result"),
+  goalAchieved: integer("goal_achieved", { mode: "boolean" }),
+})
+
 export const vocabulary = sqliteTable("vocabulary", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   sessionId: integer("session_id")

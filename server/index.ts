@@ -11,6 +11,7 @@ import { debriefRoute } from "./routes/debrief"
 import { sessionsRoute } from "./routes/sessions"
 import { progressRoute } from "./routes/progress"
 import { warmupRoute } from "./routes/warmup"
+import { planRoute } from "./routes/plan"
 
 runMigrations()
 await startNativeServices()
@@ -25,6 +26,7 @@ const api = new Elysia({ prefix: "/api" })
   .use(sessionsRoute)
   .use(progressRoute)
   .use(warmupRoute)
+  .use(planRoute)
 
 const distDir = join(import.meta.dir, "..", "dist")
 
@@ -49,6 +51,10 @@ const url = `http://localhost:${config.port}`
 console.log(`Server running at ${url} (AI_MODE=${config.aiMode})`)
 
 // Auto-open only for a human-launched `bun start`, not scripted runs
-if (config.serveStatic && process.platform === "darwin" && process.stdout.isTTY) {
+if (
+  config.serveStatic &&
+  process.platform === "darwin" &&
+  process.stdout.isTTY
+) {
   Bun.spawn(["open", url])
 }

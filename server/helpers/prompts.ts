@@ -1,5 +1,11 @@
 // Scenario personas and difficulty styles injected into the LLM system prompts.
-import type { Difficulty, ScenarioId } from "../../src/core/session/contract"
+import {
+  ERROR_TAG_IDS,
+  SCENARIO_IDS,
+  type Difficulty,
+  type ErrorTag,
+  type ScenarioId,
+} from "../../src/core/session/contract"
 
 const PERSONAS: Record<ScenarioId, string> = {
   "interview-frontend": `You are a friendly but professional job interviewer at a tech company. You are interviewing Oleksii for a Frontend Developer position (React, TypeScript, CSS, web performance). Ask ONE interview question at a time — mix behavioral and technical questions appropriate for a spoken interview. Follow up on his answers like a real interviewer would.`,
@@ -35,6 +41,30 @@ For each of his messages (a speech transcript, so ignore punctuation/casing issu
 
 const SUGGESTIONS_RULE = `The third section: exactly 2 different short example replies Oleksii could say next in response to you (first person, spoken style, max 12 simple words each), one per line.`
 
+const FOCUS_ELICITATION: Record<ErrorTag, string> = {
+  articles:
+    "ask about specific things, places, and objects so he has to use articles (a/an/the)",
+  tenses:
+    "ask about past experiences and future plans so he has to switch verb tenses",
+  prepositions:
+    "ask about time, places, and how things relate so prepositions come up often",
+  "word-order": "ask questions that invite longer, multi-clause answers",
+  vocabulary:
+    "nudge him to describe things precisely instead of using generic words",
+  phrasing:
+    "invite him to retell or explain things so natural phrasing gets practiced",
+  agreement:
+    "ask about people, teams, and what they do so subject-verb agreement comes up",
+  other: "keep the conversation varied",
+}
+
+const focusRule = (tags: ErrorTag[]) =>
+  `Lesson focus: ${tags.join(", ")}. Quietly steer the conversation to exercise these areas: ${tags
+    .map((t) => FOCUS_ELICITATION[t])
+    .join(
+      "; "
+    )}. Never mention the focus in your English reply. In the Russian coaching note pay extra attention to these categories and correct every slip in them.`
+
 const warmupRule = (phrases: string[]) =>
   `Warm-up goal: Oleksii is trying to naturally reuse these phrases from his past session reviews: ${phrases
     .map((p) => `"${p}"`)
@@ -45,7 +75,8 @@ const warmupRule = (phrases: string[]) =>
 export function buildSystemPrompt(
   scenario?: ScenarioId,
   difficulty: Difficulty = "medium",
-  warmup: string[] = []
+  warmup: string[] = [],
+  focusTags: ErrorTag[] = []
 ): string {
   const withSuggestions = difficulty === "easy"
   const format = withSuggestions
@@ -56,6 +87,7 @@ export function buildSystemPrompt(
     personaFor(scenario),
     DIFFICULTY_STYLE[difficulty],
     COACH_RULES,
+    focusTags.length ? focusRule(focusTags) : "",
     warmup.length ? warmupRule(warmup) : "",
     withSuggestions ? SUGGESTIONS_RULE : "",
     `Answer in EXACTLY this plain-text format — sections separated by a line containing only "---". No JSON, no markdown, no section titles:\n${format}`,
@@ -90,3 +122,31 @@ Rules:
 - "tag": the error category, exactly one of: articles, tenses, prepositions, word-order, vocabulary, phrasing, agreement, other. Pick the closest match; use "other" only when nothing fits.
 - "vocabulary": 3-6 words or expressions worth remembering for this scenario.
 - Do not invent phrases he never said.`
+
+export const DEBRIEF_PLAN_RULE = (plan: {
+  focusTags: ErrorTag[]
+  microGoal: string
+}) => `This session was a lesson with a plan. Focus categories: ${plan.focusTags.join(", ") || "none"}. Micro-goal (in Russian): "${plan.microGoal}".
+
+Add ONE more field to the JSON:
+"planCheck": {"focusResult": "<2 предложения по-русски: как он справился с фокусом занятия — с примерами из разговора>", "goalAchieved": <true или false — достиг ли он микро-цели>}`
+
+export const PLAN_SYSTEM = `You are an experienced English speaking coach. Oleksii is a native Russian speaker training SPOKEN English through role-played voice sessions with an AI partner. Your job is to plan his NEXT session so that practice becomes a course: every lesson targets his current weak spots and recycles phrases he should master. You will get his recent history: sessions, mistakes from session reviews (with error categories), vocabulary worth remembering, and the previous lesson plan with its outcome.
+
+Scenario ids: ${SCENARIO_IDS.join(", ")}. The interview-* scenarios are job interviews (frontend/backend/fullstack developer, general HR screening); standup is a daily standup report; tech-discussion is an informal technical discussion with a peer; casual is relaxed small talk.
+Error categories: ${ERROR_TAG_IDS.join(", ")}.
+
+Respond ONLY with valid JSON, no markdown fences, no extra text:
+{
+  "scenario": "<one scenario id>",
+  "focusTags": ["<1-2 error categories to focus this lesson on>"],
+  "focusNote": "<2-3 предложения по-русски, обращение на «ты»: почему сегодня этот фокус и за чем следить в речи>",
+  "targetPhrases": ["<3-4 short English phrases from his history to deliberately reuse in the lesson>"],
+  "microGoal": "<1 предложение по-русски: конкретная достижимая цель на это занятие>"
+}
+
+Rules:
+- "focusTags": pick the categories with the most recurring recent mistakes. If the previous lesson's focus was NOT achieved, carry it over.
+- "scenario": pick one that fits the focus and brings variety — prefer scenarios he hasn't practiced recently.
+- "targetPhrases": only phrases that appear in the provided history (natural phrasings from corrections or vocabulary entries), max 12 words each. Never invent new ones.
+- In the Russian text address him as «ты» and do not use his name.`

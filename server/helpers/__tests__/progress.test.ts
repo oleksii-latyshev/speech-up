@@ -90,7 +90,11 @@ describe("computeProgressStats", () => {
       endedAt: NOW - daysBack * DAY + MIN,
     })
     const stats = computeProgressStats(
-      { sessions: [session(1, 0), session(2, 1), session(3, 3)], turns: [], tags: [] },
+      {
+        sessions: [session(1, 0), session(2, 1), session(3, 3)],
+        turns: [],
+        tags: [],
+      },
       NOW
     )
     expect(stats.streakDays).toBe(2)

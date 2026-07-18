@@ -44,10 +44,14 @@ Conversation alone is practice, but confidence grows from feedback and from over
 10. **Progress screen** ✅ — stats: session count, speaking time, average utterance length, recurring error tags. Visible progress = motivation.
 11. **Warm-up on past mistakes** ✅ — at session start the AI prompts the user to use 2–3 phrases from previous debriefs. Simplest form of spaced repetition.
 
-### Phase 5 — Later
+### Phase 5 — Lesson mode ✅ (done)
 
-12. **Mobile / iOS Safari** — deferred until the desktop core is stable (MediaRecorder / Web Audio quirks).
-13. **Pronunciation feedback** — hard to do locally; possibly experiment with word-level confidence from faster-whisper as a rough signal.
+12. **Lesson mode (adaptive coach)** — a second practice mode next to free practice: after each debrief the coach generates a plan for the next session (scenario, 1–2 focus error categories, target phrases from past reviews, a micro-goal in Russian). The lesson steers the conversation toward the focus, the debrief checks the plan, and an unachieved goal carries over into the next plan — practice becomes a closed course loop instead of isolated sessions.
+
+### Phase 6 — Later
+
+13. **Mobile / iOS Safari** — deferred until the desktop core is stable (MediaRecorder / Web Audio quirks).
+14. **Pronunciation feedback** — hard to do locally; possibly experiment with word-level confidence from faster-whisper as a rough signal.
 
 ---
 
@@ -173,6 +177,13 @@ User speaks
 - **Used-phrase detection is client-side** (`src/features/chat/helpers/warmupMatch.ts`, unit-tested): after each transcript, fuzzy matching (normalized substring or ≥70% of content words, morphological prefix match for single words ≥4 chars) checks phrases off in real time
 - `useConversation` fetches the warm-up in parallel with session creation on `startScenario` (best-effort — an empty list just hides the card)
 
+### Lesson mode (Phase 5, item 12)
+- **`plans` table** (migration `0002_plans.sql`): scenario, focus tags (json), Russian focus note, target phrases (json), Russian micro-goal, nullable `session_id` link, and the outcome (`focus_result`, `goal_achieved`) filled by the debrief. A plan with `focus_result IS NULL` is "pending" and is reused until a lesson finishes with it.
+- **`GET /api/plan`** (`server/routes/plan.ts` → `server/planner.ts`): returns the pending plan or generates one — `PLAN_SYSTEM` prompt gets recent sessions, corrections (with tags), vocabulary, and the previous plan + outcome (`formatPlanContext`); output is validated by the pure helper `server/helpers/lessonPlan.ts` (unit-tested): invalid scenario/tags fall back, and target phrases the model invented (not backed by history) are dropped in favor of a deterministic fallback selection. With no history at all the first lesson is a static casual-scenario plan (no LLM call). A module-level in-flight guard prevents duplicate generation.
+- **Chat integration**: `ChatRequest.focusTags` — the system prompt gains a focus rule with per-tag elicitation guidance (e.g. tenses → ask about past experiences) and stricter coaching attention; the plan's target phrases ride the existing warm-up mechanism (`WarmupPhrase.source: "plan"`).
+- **Debrief integration**: `/api/debrief` accepts `planId`; the review JSON gains `planCheck {focusResult, goalAchieved}` (rendered as a "Lesson plan" block in `SessionReview`), the outcome is saved onto the plan, and the next plan is pre-generated fire-and-forget so the lesson home opens instantly next time. An unachieved goal carries the focus over into the next plan.
+- **UI**: `practiceMode` setting ("free" | "lesson", persisted); `HomeScreen` (`src/features/scenario`) wraps the mode toggle + `ScenarioPicker` or `LessonCard` (scenario, focus chips, tap-to-hear target phrases, micro-goal, "Start lesson", and a "pick a different scenario" escape that keeps the plan); in the chat the warm-up card becomes "Lesson goals" (micro-goal + focus chips + phrase checklist). Plan fetch/generation shows a "Preparing your lesson…" state.
+
 ### Coach features (Phase 2)
 - **Difficulty levels** (`easy`/`medium`/`hard`, segmented control on the picker, persisted to localStorage): difficulty adjusts the AI's speech style in the system prompt; on `easy` the `/api/chat` JSON gains a `suggestions` array (2 example replies) rendered as chips under the last AI turn — clicking a chip plays it via TTS
 - **`/api/hint`** (`server/routes/hint.ts`) — "I'm stuck" button (shown on easy+medium): sends history + scenario, returns `{suggestions}` rendered in the same chips UI
@@ -182,7 +193,7 @@ User speaks
 
 ## What Still Needs to Be Built ❌
 
-See the **Roadmap** section above — Phases 1–4 are done; what remains is Phase 5: mobile / iOS Safari support (item 12) and pronunciation feedback (item 13).
+See the **Roadmap** section above — Phases 1–5 are done; what remains is Phase 6: mobile / iOS Safari support (item 13) and pronunciation feedback (item 14).
 
 ---
 

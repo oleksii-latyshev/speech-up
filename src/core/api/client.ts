@@ -3,6 +3,7 @@ import type {
   ChatMessage,
   ChatRequest,
   Difficulty,
+  LessonPlan,
   ProgressStats,
   ReviewData,
   ScenarioId,
@@ -105,17 +106,24 @@ export async function requestHints(
 export async function requestDebrief(
   scenario: ScenarioId,
   turns: Turn[],
-  sessionId?: number
+  sessionId?: number,
+  planId?: number
 ): Promise<ReviewData> {
-  const res = await postJson("/api/debrief", { scenario, turns, sessionId })
+  const res = await postJson("/api/debrief", {
+    scenario,
+    turns,
+    sessionId,
+    planId,
+  })
   return (await res.json()) as ReviewData
 }
 
 export async function createSession(
   scenario: ScenarioId,
-  difficulty: Difficulty
+  difficulty: Difficulty,
+  planId?: number
 ): Promise<number> {
-  const res = await postJson("/api/sessions", { scenario, difficulty })
+  const res = await postJson("/api/sessions", { scenario, difficulty, planId })
   return ((await res.json()) as { id: number }).id
 }
 
@@ -137,6 +145,12 @@ export async function fetchProgress(): Promise<ProgressStats> {
   const res = await fetch("/api/progress")
   if (!res.ok) throw new Error(`/api/progress failed with ${res.status}`)
   return (await res.json()) as ProgressStats
+}
+
+export async function fetchLessonPlan(): Promise<LessonPlan> {
+  const res = await fetch("/api/plan")
+  if (!res.ok) throw new Error(`/api/plan failed with ${res.status}`)
+  return ((await res.json()) as { plan: LessonPlan }).plan
 }
 
 export async function fetchWarmup(): Promise<WarmupPhrase[]> {

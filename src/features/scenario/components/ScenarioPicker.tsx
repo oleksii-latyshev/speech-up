@@ -29,7 +29,7 @@ export function ScenarioPicker({
   const activeDifficulty = DIFFICULTIES.find((d) => d.id === difficulty)!
 
   return (
-    <div className="flex flex-1 items-center justify-center overflow-y-auto px-4 py-8">
+    <div className="flex flex-1 items-center justify-center px-4 py-8">
       <div className="w-full max-w-2xl">
         <div className="mb-7 text-center">
           <p className="mb-2.5 text-xs font-semibold tracking-widest text-primary uppercase">

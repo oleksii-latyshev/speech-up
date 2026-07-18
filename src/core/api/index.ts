@@ -1,6 +1,7 @@
 export {
   createSession,
   endSession,
+  fetchLessonPlan,
   fetchProgress,
   fetchWarmup,
   listSessions,

@@ -4,6 +4,7 @@ import {
   addTurn,
   createSession,
   endSession,
+  linkPlanToSession,
   listSessions,
 } from "../db"
 
@@ -15,12 +16,15 @@ export const sessionsRoute = new Elysia()
       if (!isScenarioId(body.scenario) || !isDifficulty(body.difficulty)) {
         return status(400, "Unknown scenario or difficulty")
       }
-      return { id: await createSession(body.scenario, body.difficulty) }
+      const id = await createSession(body.scenario, body.difficulty)
+      if (body.planId != null) await linkPlanToSession(body.planId, id)
+      return { id }
     },
     {
       body: t.Object({
         scenario: t.String(),
         difficulty: t.String(),
+        planId: t.Optional(t.Number()),
       }),
     }
   )

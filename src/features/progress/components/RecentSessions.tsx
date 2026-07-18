@@ -1,4 +1,8 @@
-import { scenarioTitle, type SessionSummary } from "@/core/session"
+import {
+  scenarioCardFor,
+  scenarioTitle,
+  type SessionSummary,
+} from "@/core/session"
 import { Badge } from "@/shared/components/ui/badge"
 import {
   Card,
@@ -9,7 +13,6 @@ import {
 } from "@/shared/components/ui/card"
 import { cn } from "@/shared/lib/utils"
 import { formatDuration, sessionDateLabel } from "../helpers/format"
-import { scenarioCardFor } from "../helpers/scenarioCard"
 
 const MAX_SESSIONS = 6
 

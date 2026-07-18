@@ -6,10 +6,16 @@ import {
   type ReviewData,
   type Turn,
 } from "../../src/core/session/contract"
-import { saveReview } from "../db"
+import { getPlan, savePlanResult, saveReview } from "../db"
+import { sanitizePlanCheck } from "../helpers/lessonPlan"
 import { extractJsonObject } from "../helpers/modelJson"
-import { DEBRIEF_SYSTEM, personaFor } from "../helpers/prompts"
+import {
+  DEBRIEF_PLAN_RULE,
+  DEBRIEF_SYSTEM,
+  personaFor,
+} from "../helpers/prompts"
 import { chatCompletion } from "../ollama"
+import { pregenerateNextPlan } from "../planner"
 
 const sanitizeCorrection = (c: Correction): Correction => ({
   you: c.you,
@@ -34,9 +40,13 @@ export const debriefRoute = new Elysia().post(
   async ({ body }) => {
     const { turns, scenario } = body
     const scenarioId = scenario && isScenarioId(scenario) ? scenario : undefined
+    const plan = body.planId != null ? await getPlan(body.planId) : null
 
+    const system = plan
+      ? `${DEBRIEF_SYSTEM}\n\n${DEBRIEF_PLAN_RULE(plan)}`
+      : DEBRIEF_SYSTEM
     const raw = await chatCompletion([
-      { role: "system", content: DEBRIEF_SYSTEM },
+      { role: "system", content: system },
       {
         role: "user",
         content: `Scenario: the AI played this role — ${personaFor(scenarioId)}\n\nConversation:\n${formatConversation(turns)}`,
@@ -44,6 +54,7 @@ export const debriefRoute = new Elysia().post(
     ])
 
     const parsed = extractJsonObject<ReviewData>(raw)
+    const planCheck = plan ? sanitizePlanCheck(parsed.planCheck) : null
     const review: ReviewData = {
       overview: parsed.overview ?? "",
       corrections: Array.isArray(parsed.corrections)
@@ -51,12 +62,28 @@ export const debriefRoute = new Elysia().post(
         : [],
       vocabulary: Array.isArray(parsed.vocabulary) ? parsed.vocabulary : [],
       praise: parsed.praise ?? "",
+      ...(planCheck ? { planCheck } : {}),
     }
 
     if (body.sessionId != null) {
       await saveReview(body.sessionId, review).catch((err) =>
-        console.warn(`Failed to persist review for session ${body.sessionId}:`, err)
+        console.warn(
+          `Failed to persist review for session ${body.sessionId}:`,
+          err
+        )
       )
+    }
+    if (plan) {
+      await savePlanResult(
+        plan.id,
+        planCheck ?? {
+          focusResult: review.overview || "completed",
+          goalAchieved: false,
+        }
+      ).catch((err) =>
+        console.warn(`Failed to save result for plan ${plan.id}:`, err)
+      )
+      pregenerateNextPlan()
     }
     return review
   },
@@ -71,6 +98,7 @@ export const debriefRoute = new Elysia().post(
       ),
       scenario: t.Optional(t.String()),
       sessionId: t.Optional(t.Number()),
+      planId: t.Optional(t.Number()),
     }),
   }
 )

@@ -31,7 +31,10 @@ export function ActivityChart({ days }: ActivityChartProps) {
         <CardDescription>Minutes practiced per day</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="aspect-auto h-44 w-full">
+        <ChartContainer
+          config={chartConfig}
+          className="aspect-auto h-44 w-full"
+        >
           <BarChart
             data={days}
             margin={{ top: 8, right: 4, bottom: 0, left: -16 }}

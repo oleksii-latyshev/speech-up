@@ -12,7 +12,7 @@ import { useSettings } from "@/core/settings"
 import { ChatScreen, useConversation, type CaptureMode } from "@/features/chat"
 import { ProgressScreen } from "@/features/progress"
 import { SessionReview, useSessionReview } from "@/features/review"
-import { ScenarioPicker } from "@/features/scenario"
+import { HomeScreen } from "@/features/scenario"
 import { SettingsPanel } from "@/features/settings"
 import {
   AlertDialog,
@@ -45,7 +45,7 @@ export default function App() {
     if (!scenario) return
     player.stop()
     conversation.capture.stopAuto()
-    review.show(scenario, turns, conversation.sessionId)
+    review.show(scenario, turns, conversation.sessionId, conversation.plan?.id)
   }
 
   const resetSession = () => {
@@ -133,10 +133,13 @@ export default function App() {
       </header>
 
       {!scenario ? (
-        <ScenarioPicker
-          onPick={(id) => void conversation.startScenario(id)}
+        <HomeScreen
+          practiceMode={settings.practiceMode}
+          onPracticeModeChange={settings.setPracticeMode}
           difficulty={settings.difficulty}
           onDifficultyChange={settings.setDifficulty}
+          onPick={(id, plan) => void conversation.startScenario(id, plan)}
+          onPlayPhrase={(text) => void player.play(text, settings.voice)}
           disabled={isStarting}
         />
       ) : (
@@ -177,7 +180,9 @@ export default function App() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {progressOpen && <ProgressScreen onClose={() => setProgressOpen(false)} />}
+      {progressOpen && (
+        <ProgressScreen onClose={() => setProgressOpen(false)} />
+      )}
 
       {settingsOpen && (
         <SettingsPanel
